@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/Build/" />
+  <Folder Name="/Config/">
+    <File Path="Config/nes.cfg" />
+  </Folder>
+  <Folder Name="/Game/" />
+  <Folder Name="/Game/runtime/">
+    <File Path="Game/runtime/main.s" />
+  </Folder>
+  <Folder Name="/Game/src/" />
+  <Project Path="NESbuild/NESbuild.csproj" Id="52ac7090-2421-46b1-a98d-77780a66298f" />
+</Solution>
