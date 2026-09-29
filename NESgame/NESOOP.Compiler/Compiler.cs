@@ -12,95 +12,112 @@ namespace NESOOP.Compiler
             string outputPath
         )
         {
-            string source = File.ReadAllText(sourcePath);
+            string source =
+                File.ReadAllText(sourcePath);
 
 
             // ----------------------------------------------------------
-            // Lexical analysis
+            // Lexer
             // ----------------------------------------------------------
 
             Lexer lexer = new(source);
 
-            List<Token> tokens = lexer.Lex();
-
-
-            Console.WriteLine();
-            Console.WriteLine("Tokens:");
-            Console.WriteLine("------------------------------");
-
-            foreach (Token token in tokens)
-            {
-                Console.WriteLine(token);
-            }
-
-            Console.WriteLine();
+            List<Token> tokens =
+                lexer.Lex();
 
 
             // ----------------------------------------------------------
-            // TEMPORARY:
+            // Parser
+            // ----------------------------------------------------------
+
+            Parser parser = new(tokens);
+
+            CompilationUnitSyntax program =
+                parser.Parse();
+
+
+            // ----------------------------------------------------------
+            // TEMPORARY semantic/code-generation step
             //
             // Find:
             //
-            // Screen.BackgroundColor = NUMBER;
+            // class Game
+            //     static void Start()
             //
-            // This gets replaced by the real parser next.
+            // and inside it:
+            //
+            // Screen.BackgroundColor = ...
+            //
             // ----------------------------------------------------------
 
-            Token? colorToken = null;
+            ClassDeclarationSyntax? gameClass =
+                program.Classes.FirstOrDefault(
+                    x => x.Name == "Game"
+                );
 
-
-            for (int i = 0; i < tokens.Count - 5; i++)
-            {
-                if (
-                    tokens[i].Kind == TokenKind.Identifier &&
-                    tokens[i].Text == "Screen" &&
-
-                    tokens[i + 1].Kind == TokenKind.Dot &&
-
-                    tokens[i + 2].Kind == TokenKind.Identifier &&
-                    tokens[i + 2].Text == "BackgroundColor" &&
-
-                    tokens[i + 3].Kind == TokenKind.Equals &&
-
-                    tokens[i + 4].Kind == TokenKind.Number &&
-
-                    tokens[i + 5].Kind == TokenKind.Semicolon
-                )
-                {
-                    colorToken = tokens[i + 4];
-
-                    break;
-                }
-            }
-
-
-            if (colorToken == null)
+            if (gameClass == null)
             {
                 throw new Exception(
-                    "Compiler error: " +
-                    "expected Screen.BackgroundColor assignment."
+                    "Compiler error: class Game was not found."
                 );
             }
 
 
-            int value = ParseNumber(
-                colorToken.Value
-            );
+            MethodDeclarationSyntax? startMethod =
+                gameClass.Methods.FirstOrDefault(
+                    x =>
+                        x.Name == "Start" &&
+                        x.IsStatic
+                );
+
+            if (startMethod == null)
+            {
+                throw new Exception(
+                    "Compiler error: static void Game.Start() was not found."
+                );
+            }
+
+
+            AssignmentStatementSyntax? colorAssignment =
+                startMethod.Body.Statements
+                    .OfType<AssignmentStatementSyntax>()
+                    .FirstOrDefault(
+                        x =>
+                            x.Target.Parts.Count == 2 &&
+                            x.Target.Parts[0] == "Screen" &&
+                            x.Target.Parts[1] == "BackgroundColor"
+                    );
+
+
+            if (colorAssignment == null)
+            {
+                throw new Exception(
+                    "Compiler error: " +
+                    "Screen.BackgroundColor assignment was not found."
+                );
+            }
+
+
+            int value =
+                colorAssignment.Value.Value;
 
 
             if (value < 0 || value > 0x3F)
             {
+                Token token =
+                    colorAssignment.Value.Token;
+
                 throw new Exception(
                     $"Background color must be between " +
                     $"0x00 and 0x3F at " +
-                    $"line {colorToken.Value.Line}, " +
-                    $"column {colorToken.Value.Column}."
+                    $"line {token.Line}, " +
+                    $"column {token.Column}."
                 );
             }
 
 
             // ----------------------------------------------------------
-            // Generate assembly
+            // Generate 6502 assembly
             // ----------------------------------------------------------
 
             string assembly = $@"
@@ -115,17 +132,14 @@ namespace NESOOP.Compiler
 
 .proc Game_Start
 
-    ; Reset PPU address latch
     lda $2002
 
-    ; Palette address $3F00
     lda #$3F
     sta $2006
 
     lda #$00
     sta $2006
 
-    ; Background colour from NES OOP source
     lda #${value:X2}
     sta $2007
 
@@ -157,27 +171,6 @@ namespace NESOOP.Compiler
             Console.WriteLine(
                 $"Generated: {outputPath}"
             );
-        }
-
-
-        private static int ParseNumber(Token token)
-        {
-            string text = token.Text;
-
-
-            if (
-                text.StartsWith("0x") ||
-                text.StartsWith("0X")
-            )
-            {
-                return Convert.ToInt32(
-                    text[2..],
-                    16
-                );
-            }
-
-
-            return int.Parse(text);
         }
     }
 }

@@ -10,18 +10,15 @@
 
 .proc Game_Start
 
-    ; Reset PPU address latch
     lda $2002
 
-    ; Palette address $3F00
     lda #$3F
     sta $2006
 
     lda #$00
     sta $2006
 
-    ; Background colour from NES OOP source
-    lda #$20
+    lda #$2B
     sta $2007
 
     rts
