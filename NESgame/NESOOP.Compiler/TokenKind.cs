@@ -26,6 +26,7 @@ namespace NESOOP.Compiler
         Dot,
         Equals,
         Semicolon,
+        Plus,
 
         // End of source
         EndOfFile

@@ -66,6 +66,13 @@ namespace NESOOP.Compiler
     ) : ExpressionSyntax;
 
 
+    public sealed record BinaryExpressionSyntax(
+        ExpressionSyntax Left,
+        Token OperatorToken,
+        ExpressionSyntax Right
+    ) : ExpressionSyntax;
+
+
     public sealed record MemberAccessExpressionSyntax(
         IReadOnlyList<string> Parts
     );

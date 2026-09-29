@@ -5,6 +5,7 @@
 
 .segment "BSS"
 
+__nesoop_expr_temp: .res 1
 Game_Start_color: .res 1
 
 .segment "CODE"
@@ -13,8 +14,18 @@ Game_Start_color: .res 1
 
 .proc Game_Start
 
-    ; byte color = $2B
+    ; byte color
     lda #$2B
+    sta Game_Start_color
+
+    ; variable assignment
+    lda Game_Start_color
+    pha
+    lda #$01
+    sta __nesoop_expr_temp
+    pla
+    clc
+    adc __nesoop_expr_temp
     sta Game_Start_color
 
     ; Screen.BackgroundColor
@@ -27,6 +38,7 @@ Game_Start_color: .res 1
     sta $2006
 
     lda Game_Start_color
+    and #$3F
     sta $2007
 
     rts

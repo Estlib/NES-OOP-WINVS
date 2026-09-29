@@ -182,6 +182,19 @@ namespace NESOOP.Compiler
                         Advance();
                         break;
 
+                    case '+':
+                        tokens.Add(
+                            new Token(
+                                TokenKind.Plus,
+                                "+",
+                                line,
+                                column
+                            )
+                        );
+
+                        Advance();
+                        break;
+
 
                     default:
                         throw new Exception(

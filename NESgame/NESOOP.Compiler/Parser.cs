@@ -154,10 +154,40 @@ namespace NESOOP.Compiler
 
         private ExpressionSyntax ParseExpression()
         {
+            ExpressionSyntax left =
+                ParsePrimaryExpression();
+
+
+            while (Current.Kind == TokenKind.Plus)
+            {
+                Token operatorToken = Current;
+
+                Advance();
+
+
+                ExpressionSyntax right =
+                    ParsePrimaryExpression();
+
+
+                left = new BinaryExpressionSyntax(
+                    left,
+                    operatorToken,
+                    right
+                );
+            }
+
+
+            return left;
+        }
+
+
+        private ExpressionSyntax ParsePrimaryExpression()
+        {
             switch (Current.Kind)
             {
                 case TokenKind.Number:
                     return ParseNumber();
+
 
                 case TokenKind.Identifier:
                     {
@@ -165,11 +195,13 @@ namespace NESOOP.Compiler
 
                         Advance();
 
+
                         return new IdentifierExpressionSyntax(
                             token.Text,
                             token
                         );
                     }
+
 
                 default:
                     throw new Exception(

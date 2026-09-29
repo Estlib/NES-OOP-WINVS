@@ -3,6 +3,7 @@ class Game
     static void Start()
     {
         byte color = 0x2B;
+        color = color + 1;
 
         Screen.BackgroundColor = color;
     }

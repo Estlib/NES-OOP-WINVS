@@ -6,6 +6,10 @@ namespace NESOOP.Compiler
 {
     public sealed class Nes6502CodeGenerator
     {
+        private const string ExpressionTemp =
+            "__nesoop_expr_temp";
+
+
         public string Generate(
             SemanticProgram program
         )
@@ -33,7 +37,7 @@ namespace NESOOP.Compiler
 
 
             // =========================================================
-            // RAM allocation
+            // RAM
             // =========================================================
 
             output.AppendLine(
@@ -41,6 +45,12 @@ namespace NESOOP.Compiler
             );
 
             output.AppendLine();
+
+
+            // Temporary byte used while evaluating expressions.
+            output.AppendLine(
+                $"{ExpressionTemp}: .res 1"
+            );
 
 
             foreach (
@@ -59,7 +69,7 @@ namespace NESOOP.Compiler
 
 
             // =========================================================
-            // Code
+            // CODE
             // =========================================================
 
             output.AppendLine(
@@ -114,7 +124,7 @@ namespace NESOOP.Compiler
         )
         {
             // =========================================================
-            // byte variable
+            // byte variable = expression;
             // =========================================================
 
             if (
@@ -123,12 +133,15 @@ namespace NESOOP.Compiler
             )
             {
                 output.AppendLine(
-                    $"    ; byte {variable.Name} = ${variable.InitialValue:X2}"
+                    $"    ; byte {variable.Name}"
                 );
 
-                output.AppendLine(
-                    $"    lda #${variable.InitialValue:X2}"
+
+                GenerateLoadValue(
+                    output,
+                    variable.Initializer
                 );
+
 
                 output.AppendLine(
                     $"    sta {variable.StorageName}"
@@ -141,7 +154,37 @@ namespace NESOOP.Compiler
 
 
             // =========================================================
-            // Screen.BackgroundColor = ...
+            // variable = expression;
+            // =========================================================
+
+            if (
+                statement
+                is SemanticVariableAssignment assignment
+            )
+            {
+                output.AppendLine(
+                    "    ; variable assignment"
+                );
+
+
+                GenerateLoadValue(
+                    output,
+                    assignment.Value
+                );
+
+
+                output.AppendLine(
+                    $"    sta {assignment.StorageName}"
+                );
+
+                output.AppendLine();
+
+                return;
+            }
+
+
+            // =========================================================
+            // Screen.BackgroundColor = expression;
             // =========================================================
 
             if (
@@ -154,14 +197,15 @@ namespace NESOOP.Compiler
                 );
 
 
-                // Select palette address $3F00
-
+                // Reset PPU address latch
                 output.AppendLine(
                     "    lda $2002"
                 );
 
                 output.AppendLine();
 
+
+                // Select palette address $3F00
                 output.AppendLine(
                     "    lda #$3F"
                 );
@@ -189,6 +233,12 @@ namespace NESOOP.Compiler
                 );
 
 
+                // NES palette values are six bits.
+                output.AppendLine(
+                    "    and #$3F"
+                );
+
+
                 output.AppendLine(
                     "    sta $2007"
                 );
@@ -213,6 +263,10 @@ namespace NESOOP.Compiler
         {
             switch (value)
             {
+                // -----------------------------------------------------
+                // Literal
+                // -----------------------------------------------------
+
                 case SemanticByteLiteral literal:
 
                     output.AppendLine(
@@ -222,11 +276,66 @@ namespace NESOOP.Compiler
                     return;
 
 
+                // -----------------------------------------------------
+                // Variable
+                // -----------------------------------------------------
+
                 case SemanticVariableReference variable:
 
                     output.AppendLine(
                         $"    lda {variable.StorageName}"
                     );
+
+                    return;
+
+
+                // -----------------------------------------------------
+                // Addition
+                // -----------------------------------------------------
+
+                case SemanticBinaryAdd add:
+
+                    // Evaluate left side into A.
+                    GenerateLoadValue(
+                        output,
+                        add.Left
+                    );
+
+
+                    // Preserve it on the CPU stack.
+                    output.AppendLine(
+                        "    pha"
+                    );
+
+
+                    // Evaluate right side into A.
+                    GenerateLoadValue(
+                        output,
+                        add.Right
+                    );
+
+
+                    // Temporarily preserve right side.
+                    output.AppendLine(
+                        $"    sta {ExpressionTemp}"
+                    );
+
+
+                    // Restore left side.
+                    output.AppendLine(
+                        "    pla"
+                    );
+
+
+                    // A = left + right
+                    output.AppendLine(
+                        "    clc"
+                    );
+
+                    output.AppendLine(
+                        $"    adc {ExpressionTemp}"
+                    );
+
 
                     return;
 

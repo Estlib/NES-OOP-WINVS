@@ -19,7 +19,13 @@ namespace NESOOP.Compiler
     public sealed record SemanticByteDeclaration(
         string Name,
         string StorageName,
-        byte InitialValue
+        SemanticValue Initializer
+    ) : SemanticStatement;
+
+
+    public sealed record SemanticVariableAssignment(
+        string StorageName,
+        SemanticValue Value
     ) : SemanticStatement;
 
 
@@ -42,6 +48,12 @@ namespace NESOOP.Compiler
 
     public sealed record SemanticVariableReference(
         string StorageName
+    ) : SemanticValue;
+
+
+    public sealed record SemanticBinaryAdd(
+        SemanticValue Left,
+        SemanticValue Right
     ) : SemanticValue;
     /*Later this is where things such as classes, fields, methods, object layouts, RAM locations, banks and tasks will live.*/
 }
