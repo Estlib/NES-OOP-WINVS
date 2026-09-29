@@ -231,6 +231,7 @@ namespace NESOOP.Compiler
                 "class" => TokenKind.Class,
                 "static" => TokenKind.Static,
                 "void" => TokenKind.Void,
+                "byte" => TokenKind.Byte,
 
                 _ => TokenKind.Identifier
             };

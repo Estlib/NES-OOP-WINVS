@@ -11,6 +11,9 @@ namespace NESOOP.Compiler
         Static,
         Void,
 
+        //datatypes
+        Byte,
+
         // Values / names
         Identifier,
         Number,
@@ -26,5 +29,6 @@ namespace NESOOP.Compiler
 
         // End of source
         EndOfFile
+
     }
 }

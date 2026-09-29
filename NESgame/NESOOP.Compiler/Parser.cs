@@ -99,7 +99,38 @@ namespace NESOOP.Compiler
 
         private StatementSyntax ParseStatement()
         {
+            if (Current.Kind == TokenKind.Byte)
+            {
+                return ParseVariableDeclaration();
+            }
+
             return ParseAssignment();
+        }
+        private VariableDeclarationStatementSyntax ParseVariableDeclaration()
+        {
+            // byte
+            Expect(TokenKind.Byte);
+
+            // color
+            Token name =
+                Expect(TokenKind.Identifier);
+
+            // =
+            Expect(TokenKind.Equals);
+
+            // 0x2B
+            ExpressionSyntax initializer =
+                ParseExpression();
+
+            // ;
+            Expect(TokenKind.Semicolon);
+
+
+            return new VariableDeclarationStatementSyntax(
+                name.Text,
+                name,
+                initializer
+            );
         }
 
 
@@ -110,8 +141,8 @@ namespace NESOOP.Compiler
 
             Expect(TokenKind.Equals);
 
-            NumberExpressionSyntax value =
-                ParseNumber();
+            ExpressionSyntax value =
+                ParseExpression();
 
             Expect(TokenKind.Semicolon);
 
@@ -119,6 +150,35 @@ namespace NESOOP.Compiler
                 target,
                 value
             );
+        }
+
+        private ExpressionSyntax ParseExpression()
+        {
+            switch (Current.Kind)
+            {
+                case TokenKind.Number:
+                    return ParseNumber();
+
+                case TokenKind.Identifier:
+                    {
+                        Token token = Current;
+
+                        Advance();
+
+                        return new IdentifierExpressionSyntax(
+                            token.Text,
+                            token
+                        );
+                    }
+
+                default:
+                    throw new Exception(
+                        $"Expected expression, but found " +
+                        $"'{Current.Text}' at " +
+                        $"line {Current.Line}, " +
+                        $"column {Current.Column}."
+                    );
+            }
         }
 
 
