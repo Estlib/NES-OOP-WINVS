@@ -7,56 +7,101 @@ namespace NESOOP.Compiler
 {
     public static class Compiler
     {
-        public static void Compile(string sourcePath, string outputPath)
+        public static void Compile(
+            string sourcePath,
+            string outputPath
+        )
         {
             string source = File.ReadAllText(sourcePath);
 
+
             // ----------------------------------------------------------
-            // TEMPORARY stage-0 compiler
-            //
-            // For now we recognize only:
-            //
-            // Screen.BackgroundColor = 0x21;
-            //
-            // Later this gets replaced by:
-            // Lexer -> Parser -> AST -> Type checker -> Code generator
+            // Lexical analysis
             // ----------------------------------------------------------
 
-            Match match = Regex.Match(
-                source,
-                @"Screen\.BackgroundColor\s*=\s*(0x[0-9A-Fa-f]{1,2}|\$[0-9A-Fa-f]{1,2}|\d{1,3})\s*;"
-            );
+            Lexer lexer = new(source);
 
-            if (!match.Success)
+            List<Token> tokens = lexer.Lex();
+
+
+            Console.WriteLine();
+            Console.WriteLine("Tokens:");
+            Console.WriteLine("------------------------------");
+
+            foreach (Token token in tokens)
+            {
+                Console.WriteLine(token);
+            }
+
+            Console.WriteLine();
+
+
+            // ----------------------------------------------------------
+            // TEMPORARY:
+            //
+            // Find:
+            //
+            // Screen.BackgroundColor = NUMBER;
+            //
+            // This gets replaced by the real parser next.
+            // ----------------------------------------------------------
+
+            Token? colorToken = null;
+
+
+            for (int i = 0; i < tokens.Count - 5; i++)
+            {
+                if (
+                    tokens[i].Kind == TokenKind.Identifier &&
+                    tokens[i].Text == "Screen" &&
+
+                    tokens[i + 1].Kind == TokenKind.Dot &&
+
+                    tokens[i + 2].Kind == TokenKind.Identifier &&
+                    tokens[i + 2].Text == "BackgroundColor" &&
+
+                    tokens[i + 3].Kind == TokenKind.Equals &&
+
+                    tokens[i + 4].Kind == TokenKind.Number &&
+
+                    tokens[i + 5].Kind == TokenKind.Semicolon
+                )
+                {
+                    colorToken = tokens[i + 4];
+
+                    break;
+                }
+            }
+
+
+            if (colorToken == null)
             {
                 throw new Exception(
-                    "Compiler error: expected Screen.BackgroundColor assignment."
+                    "Compiler error: " +
+                    "expected Screen.BackgroundColor assignment."
                 );
             }
 
-            string valueText = match.Groups[1].Value;
 
-            int value;
+            int value = ParseNumber(
+                colorToken.Value
+            );
 
-            if (valueText.StartsWith("0x"))
-            {
-                value = Convert.ToInt32(valueText[2..], 16);
-            }
-            else if (valueText.StartsWith("$"))
-            {
-                value = Convert.ToInt32(valueText[1..], 16);
-            }
-            else
-            {
-                value = int.Parse(valueText);
-            }
 
             if (value < 0 || value > 0x3F)
             {
                 throw new Exception(
-                    "Background color must be between 0x00 and 0x3F."
+                    $"Background color must be between " +
+                    $"0x00 and 0x3F at " +
+                    $"line {colorToken.Value.Line}, " +
+                    $"column {colorToken.Value.Column}."
                 );
             }
+
+
+            // ----------------------------------------------------------
+            // Generate assembly
+            // ----------------------------------------------------------
 
             string assembly = $@"
 ; ==========================================================
@@ -89,12 +134,21 @@ namespace NESOOP.Compiler
 .endproc
 ";
 
-            string? directory = Path.GetDirectoryName(outputPath);
+
+            string? directory =
+                Path.GetDirectoryName(outputPath);
 
             if (directory != null)
+            {
                 Directory.CreateDirectory(directory);
+            }
 
-            File.WriteAllText(outputPath, assembly);
+
+            File.WriteAllText(
+                outputPath,
+                assembly
+            );
+
 
             Console.WriteLine(
                 $"Compiled: {Path.GetFileName(sourcePath)}"
@@ -103,6 +157,27 @@ namespace NESOOP.Compiler
             Console.WriteLine(
                 $"Generated: {outputPath}"
             );
+        }
+
+
+        private static int ParseNumber(Token token)
+        {
+            string text = token.Text;
+
+
+            if (
+                text.StartsWith("0x") ||
+                text.StartsWith("0X")
+            )
+            {
+                return Convert.ToInt32(
+                    text[2..],
+                    16
+                );
+            }
+
+
+            return int.Parse(text);
         }
     }
 }
