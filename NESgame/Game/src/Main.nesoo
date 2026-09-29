@@ -2,6 +2,6 @@ class Game
 {
     static void Start()
     {
-        Screen.BackgroundColor = 0x2b;  //this is comment
+        Screen.BackgroundColor = 0x99;  //this is comment
     }
 }
