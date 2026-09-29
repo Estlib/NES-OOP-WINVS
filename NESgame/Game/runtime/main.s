@@ -1,7 +1,7 @@
 ; ---------------------------------------------------------
 ; Minimal NES test ROM
 ; ---------------------------------------------------------
-
+.import Game_Start
 .segment "HEADER"
 
 ; iNES header
@@ -79,22 +79,10 @@
 
 
 ; ---------------------------------------------------------
-; Set background colour
+; Run generated game startup code
 ; ---------------------------------------------------------
 
-    ; Reset PPU address latch
-    lda $2002
-
-    ; Address $3F00 = universal background colour
-    lda #$3F
-    sta $2006
-
-    lda #$00
-    sta $2006
-
-    ; Blue-ish NES palette colour
-    lda #$21
-    sta $2007
+    jsr Game_Start
 
 
 ; ---------------------------------------------------------

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using NESOOP.Compiler;
 
 namespace NESbuild
 {
@@ -77,16 +78,48 @@ namespace NESbuild
             string root = FindSolutionRoot();
 
             string runtimeFolder = Path.Combine(root, "Game", "runtime");
+            string sourceFolder = Path.Combine(root, "Game", "src");
             string configFolder = Path.Combine(root, "config");
             string buildFolder = Path.Combine(root, "build");
+            string generatedFolder = Path.Combine(buildFolder, "generated");
 
-            string sourceFile = Path.Combine(runtimeFolder, "main.s");
-            string configFile = Path.Combine(configFolder, "nes.cfg");
+            string runtimeSource = Path.Combine(runtimeFolder, "main.s");
+            string oopSource = Path.Combine(sourceFolder, "Main.nesoo");
 
-            string objectFile = Path.Combine(buildFolder, "main.o");
-            string romFile = Path.Combine(buildFolder, "game.nes");
-            string mapFile = Path.Combine(buildFolder, "game.map");
-            string debugFile = Path.Combine(buildFolder, "game.dbg");
+            string generatedSource = Path.Combine(
+                generatedFolder,
+                "game.s"
+            );
+
+            string configFile = Path.Combine(
+                configFolder,
+                "nes.cfg"
+            );
+
+            string runtimeObject = Path.Combine(
+                buildFolder,
+                "runtime.o"
+            );
+
+            string generatedObject = Path.Combine(
+                buildFolder,
+                "game.o"
+            );
+
+            string romFile = Path.Combine(
+                buildFolder,
+                "game.nes"
+            );
+
+            string mapFile = Path.Combine(
+                buildFolder,
+                "game.map"
+            );
+
+            string debugFile = Path.Combine(
+                buildFolder,
+                "game.dbg"
+            );
 
             string mesenPath = @"C:\nestools\mesen\Mesen.exe";
 
@@ -96,32 +129,71 @@ namespace NESbuild
             // ----------------------------------------------------------
 
             Directory.CreateDirectory(buildFolder);
+            Directory.CreateDirectory(generatedFolder);
 
             Console.WriteLine("NES build");
             Console.WriteLine("---------");
             Console.WriteLine($"Root: {root}");
             Console.WriteLine();
 
-
             // ----------------------------------------------------------
-            // Assemble
+            // Compile NES OOP
             // ----------------------------------------------------------
 
-            Console.WriteLine("Assembling...");
+            Console.WriteLine("Compiling NES OOP...");
+
+            try
+            {
+                Compiler.Compile(
+                    oopSource,
+                    generatedSource
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine();
+                Console.Error.WriteLine(ex.Message);
+
+                return 1;
+            }
+            // ----------------------------------------------------------
+            // Assemble runtime
+            // ----------------------------------------------------------
+
+            Console.WriteLine("Assembling runtime...");
 
             int result = RunProcess(
                 "ca65",
-                sourceFile,
+                runtimeSource,
                 "-g",
                 "-o",
-                objectFile
+                runtimeObject
             );
 
             if (result != 0)
             {
-                Console.Error.WriteLine();
-                Console.Error.WriteLine("ca65 failed.");
+                Console.Error.WriteLine("Runtime assembly failed.");
+                return result;
+            }
 
+
+            // ----------------------------------------------------------
+            // Assemble generated game code
+            // ----------------------------------------------------------
+
+            Console.WriteLine("Assembling generated code...");
+
+            result = RunProcess(
+                "ca65",
+                generatedSource,
+                "-g",
+                "-o",
+                generatedObject
+            );
+
+            if (result != 0)
+            {
+                Console.Error.WriteLine("Generated assembly failed.");
                 return result;
             }
 
@@ -135,7 +207,10 @@ namespace NESbuild
             result = RunProcess(
                 "ld65",
                 "-C", configFile,
-                objectFile,
+
+                runtimeObject,
+                generatedObject,
+
                 "-o", romFile,
                 "-m", mapFile,
                 "--dbgfile", debugFile

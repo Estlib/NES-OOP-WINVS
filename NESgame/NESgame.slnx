@@ -7,6 +7,9 @@
   <Folder Name="/Game/runtime/">
     <File Path="Game/runtime/main.s" />
   </Folder>
-  <Folder Name="/Game/src/" />
+  <Folder Name="/Game/src/">
+    <File Path="Game/src/Main.nesoo" />
+  </Folder>
   <Project Path="NESbuild/NESbuild.csproj" Id="52ac7090-2421-46b1-a98d-77780a66298f" />
+  <Project Path="NESOOP.Compiler/NESOOP.Compiler.csproj" Id="8c61b38c-b0e4-4420-9a32-889cf273c260" />
 </Solution>

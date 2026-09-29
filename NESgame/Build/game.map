@@ -1,10 +1,12 @@
 Modules list:
 -------------
-main.o:
-    CODE              Offs=000000  Size=00007A  Align=00001  Fill=0000
+runtime.o:
+    CODE              Offs=000000  Size=00006B  Align=00001  Fill=0000
     HEADER            Offs=000000  Size=000010  Align=00001  Fill=0000
     VECTORS           Offs=000000  Size=000006  Align=00001  Fill=0000
     CHARS             Offs=000000  Size=002000  Align=00001  Fill=0000
+game.o:
+    CODE              Offs=00006B  Size=000013  Align=00001  Fill=0000
 
 
 Segment list:
@@ -13,20 +15,22 @@ Name                   Start     End    Size  Align
 ----------------------------------------------------
 CHARS                 000000  001FFF  002000  00001
 HEADER                000000  00000F  000010  00001
-CODE                  008000  008079  00007A  00001
+CODE                  008000  00807D  00007E  00001
 VECTORS               00FFFA  00FFFF  000006  00001
 
 
 Exports list by name:
 ---------------------
-
+Game_Start                00806B RLA    
 
 
 Exports list by value:
 ----------------------
-
+Game_Start                00806B RLA    
 
 
 Imports list:
 -------------
+Game_Start (game.o):
+    runtime.o                 C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\Game\runtime\main.s:4
 

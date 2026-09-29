@@ -1,0 +1,7 @@
+class Game
+{
+    static void Start()
+    {
+        Screen.BackgroundColor = 0x20;
+    }
+}
