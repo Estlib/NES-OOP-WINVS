@@ -36,6 +36,7 @@ namespace NESOOP.Compiler
             output.AppendLine();
 
 
+
             // =========================================================
             // RAM
             // =========================================================
@@ -47,7 +48,6 @@ namespace NESOOP.Compiler
             output.AppendLine();
 
 
-            // Temporary byte used while evaluating expressions.
             output.AppendLine(
                 $"{ExpressionTemp}: .res 1"
             );
@@ -55,7 +55,11 @@ namespace NESOOP.Compiler
 
             foreach (
                 SemanticByteDeclaration variable
-                in program.Statements
+                in program.Methods
+                    .SelectMany(
+                        method =>
+                            method.Statements
+                    )
                     .OfType<SemanticByteDeclaration>()
             )
             {
@@ -68,6 +72,7 @@ namespace NESOOP.Compiler
             output.AppendLine();
 
 
+
             // =========================================================
             // CODE
             // =========================================================
@@ -78,14 +83,57 @@ namespace NESOOP.Compiler
 
             output.AppendLine();
 
+
+            // The handwritten NES runtime calls this.
             output.AppendLine(
                 ".export Game_Start"
             );
 
             output.AppendLine();
 
+
+
+            // =========================================================
+            // Generate every method
+            // =========================================================
+
+            foreach (
+                SemanticMethod method
+                in program.Methods
+            )
+            {
+                GenerateMethod(
+                    output,
+                    method
+                );
+            }
+
+
+            return output.ToString();
+        }
+
+
+
+        private static void GenerateMethod(
+            StringBuilder output,
+            SemanticMethod method
+        )
+        {
             output.AppendLine(
-                ".proc Game_Start"
+                $"; ----------------------------------------------------------"
+            );
+
+            output.AppendLine(
+                $"; {method.ClassName}.{method.Name}()"
+            );
+
+            output.AppendLine(
+                $"; ----------------------------------------------------------"
+            );
+
+
+            output.AppendLine(
+                $".proc {method.Label}"
             );
 
             output.AppendLine();
@@ -93,7 +141,7 @@ namespace NESOOP.Compiler
 
             foreach (
                 SemanticStatement statement
-                in program.Statements
+                in method.Statements
             )
             {
                 GenerateStatement(
@@ -103,6 +151,7 @@ namespace NESOOP.Compiler
             }
 
 
+            // Every void method returns using RTS.
             output.AppendLine(
                 "    rts"
             );
@@ -113,9 +162,9 @@ namespace NESOOP.Compiler
                 ".endproc"
             );
 
-
-            return output.ToString();
+            output.AppendLine();
         }
+
 
 
         private static void GenerateStatement(
@@ -124,7 +173,7 @@ namespace NESOOP.Compiler
         )
         {
             // =========================================================
-            // byte variable = expression;
+            // Local byte
             // =========================================================
 
             if (
@@ -153,8 +202,9 @@ namespace NESOOP.Compiler
             }
 
 
+
             // =========================================================
-            // variable = expression;
+            // Variable assignment
             // =========================================================
 
             if (
@@ -162,11 +212,6 @@ namespace NESOOP.Compiler
                 is SemanticVariableAssignment assignment
             )
             {
-                output.AppendLine(
-                    "    ; variable assignment"
-                );
-
-
                 GenerateLoadValue(
                     output,
                     assignment.Value
@@ -183,8 +228,37 @@ namespace NESOOP.Compiler
             }
 
 
+
             // =========================================================
-            // Screen.BackgroundColor = expression;
+            // Method call
+            //
+            // This is where:
+            //
+            // SetColor();
+            //
+            // becomes:
+            //
+            // JSR Game_SetColor
+            // =========================================================
+
+            if (
+                statement
+                is SemanticMethodCall call
+            )
+            {
+                output.AppendLine(
+                    $"    jsr {call.TargetLabel}"
+                );
+
+                output.AppendLine();
+
+                return;
+            }
+
+
+
+            // =========================================================
+            // Screen.BackgroundColor
             // =========================================================
 
             if (
@@ -197,7 +271,6 @@ namespace NESOOP.Compiler
                 );
 
 
-                // Reset PPU address latch
                 output.AppendLine(
                     "    lda $2002"
                 );
@@ -205,7 +278,6 @@ namespace NESOOP.Compiler
                 output.AppendLine();
 
 
-                // Select palette address $3F00
                 output.AppendLine(
                     "    lda #$3F"
                 );
@@ -215,6 +287,7 @@ namespace NESOOP.Compiler
                 );
 
                 output.AppendLine();
+
 
                 output.AppendLine(
                     "    lda #$00"
@@ -233,7 +306,6 @@ namespace NESOOP.Compiler
                 );
 
 
-                // NES palette values are six bits.
                 output.AppendLine(
                     "    and #$3F"
                 );
@@ -249,11 +321,13 @@ namespace NESOOP.Compiler
             }
 
 
+
             throw new Exception(
                 "Internal compiler error: " +
                 "unknown semantic statement."
             );
         }
+
 
 
         private static void GenerateLoadValue(
@@ -263,10 +337,6 @@ namespace NESOOP.Compiler
         {
             switch (value)
             {
-                // -----------------------------------------------------
-                // Literal
-                // -----------------------------------------------------
-
                 case SemanticByteLiteral literal:
 
                     output.AppendLine(
@@ -276,9 +346,6 @@ namespace NESOOP.Compiler
                     return;
 
 
-                // -----------------------------------------------------
-                // Variable
-                // -----------------------------------------------------
 
                 case SemanticVariableReference variable:
 
@@ -289,48 +356,40 @@ namespace NESOOP.Compiler
                     return;
 
 
-                // -----------------------------------------------------
-                // Addition
-                // -----------------------------------------------------
 
                 case SemanticBinaryAdd add:
 
-                    // Evaluate left side into A.
                     GenerateLoadValue(
                         output,
                         add.Left
                     );
 
 
-                    // Preserve it on the CPU stack.
                     output.AppendLine(
                         "    pha"
                     );
 
 
-                    // Evaluate right side into A.
                     GenerateLoadValue(
                         output,
                         add.Right
                     );
 
 
-                    // Temporarily preserve right side.
                     output.AppendLine(
                         $"    sta {ExpressionTemp}"
                     );
 
 
-                    // Restore left side.
                     output.AppendLine(
                         "    pla"
                     );
 
 
-                    // A = left + right
                     output.AppendLine(
                         "    clc"
                     );
+
 
                     output.AppendLine(
                         $"    adc {ExpressionTemp}"
@@ -338,6 +397,7 @@ namespace NESOOP.Compiler
 
 
                     return;
+
 
 
                 default:

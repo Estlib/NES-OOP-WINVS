@@ -10,29 +10,53 @@ namespace NESOOP.Compiler
             CompilationUnitSyntax program
         )
         {
-            ClassDeclarationSyntax? gameClass =
-                program.Classes.FirstOrDefault(
-                    x => x.Name == "Game"
-                );
+            // =========================================================
+            // Build a table of every method first.
+            //
+            // This allows:
+            //
+            // Start() calling a method declared later.
+            // =========================================================
+
+            Dictionary<string, MethodDeclarationSyntax> methods =
+                new();
 
 
-            if (gameClass == null)
+            foreach (ClassDeclarationSyntax classDeclaration in program.Classes)
             {
-                throw new Exception(
-                    "Semantic error: class Game was not found."
-                );
+                foreach (MethodDeclarationSyntax method in classDeclaration.Methods)
+                {
+                    string key =
+                        $"{classDeclaration.Name}.{method.Name}";
+
+
+                    if (methods.ContainsKey(key))
+                    {
+                        throw new Exception(
+                            $"Semantic error: method '{key}' " +
+                            $"is already declared."
+                        );
+                    }
+
+
+                    methods.Add(
+                        key,
+                        method
+                    );
+                }
             }
 
 
-            MethodDeclarationSyntax? startMethod =
-                gameClass.Methods.FirstOrDefault(
-                    x =>
-                        x.Name == "Start" &&
-                        x.IsStatic
-                );
+            // =========================================================
+            // Game.Start must still exist.
+            // =========================================================
 
-
-            if (startMethod == null)
+            if (
+                !methods.TryGetValue(
+                    "Game.Start",
+                    out MethodDeclarationSyntax? entryPoint
+                )
+            )
             {
                 throw new Exception(
                     "Semantic error: static void Game.Start() was not found."
@@ -40,20 +64,82 @@ namespace NESOOP.Compiler
             }
 
 
-            List<SemanticStatement> output = new();
+            if (!entryPoint.IsStatic)
+            {
+                throw new Exception(
+                    "Semantic error: Game.Start() must be static."
+                );
+            }
 
 
+            // =========================================================
+            // Analyze all methods.
+            // =========================================================
+
+            List<SemanticMethod> semanticMethods =
+                new();
+
+
+            foreach (ClassDeclarationSyntax classDeclaration in program.Classes)
+            {
+                foreach (MethodDeclarationSyntax method in classDeclaration.Methods)
+                {
+                    // Instance methods come later when we actually
+                    // implement objects and "this".
+                    if (!method.IsStatic)
+                    {
+                        throw new Exception(
+                            $"Semantic error: instance method " +
+                            $"'{classDeclaration.Name}.{method.Name}' " +
+                            $"is not supported yet."
+                        );
+                    }
+
+
+                    SemanticMethod semanticMethod =
+                        AnalyzeMethod(
+                            classDeclaration.Name,
+                            method,
+                            methods
+                        );
+
+
+                    semanticMethods.Add(
+                        semanticMethod
+                    );
+                }
+            }
+
+
+            return new SemanticProgram(
+                semanticMethods
+            );
+        }
+
+
+
+        private static SemanticMethod AnalyzeMethod(
+            string className,
+            MethodDeclarationSyntax method,
+            Dictionary<string, MethodDeclarationSyntax> methods
+        )
+        {
+            List<SemanticStatement> output =
+                new();
+
+
+            // Every method has its own local variable scope.
             Dictionary<string, SemanticByteDeclaration> variables =
                 new();
 
 
             foreach (
                 StatementSyntax statement
-                in startMethod.Body.Statements
+                in method.Body.Statements
             )
             {
                 // =====================================================
-                // byte name = expression;
+                // byte variable = expression;
                 // =====================================================
 
                 if (
@@ -79,8 +165,10 @@ namespace NESOOP.Compiler
                         );
 
 
+                    // Include class and method name so two methods
+                    // can both have a local variable called "color".
                     string storageName =
-                        $"Game_Start_{declaration.Name}";
+                        $"{className}_{method.Name}_{declaration.Name}";
 
 
                     SemanticByteDeclaration semanticDeclaration =
@@ -107,7 +195,102 @@ namespace NESOOP.Compiler
 
 
                 // =====================================================
-                // Assignments
+                // Method call
+                // =====================================================
+
+                if (
+                    statement
+                    is MethodCallStatementSyntax call
+                )
+                {
+                    string targetClass;
+                    string targetMethod;
+
+
+                    // -------------------------------------------------
+                    // SetColor();
+                    //
+                    // Means:
+                    //
+                    // CurrentClass.SetColor();
+                    // -------------------------------------------------
+
+                    if (call.Target.Parts.Count == 1)
+                    {
+                        targetClass =
+                            className;
+
+                        targetMethod =
+                            call.Target.Parts[0];
+                    }
+
+
+                    // -------------------------------------------------
+                    // Palette.SetColor();
+                    // -------------------------------------------------
+
+                    else if (call.Target.Parts.Count == 2)
+                    {
+                        targetClass =
+                            call.Target.Parts[0];
+
+                        targetMethod =
+                            call.Target.Parts[1];
+                    }
+
+
+                    else
+                    {
+                        throw new Exception(
+                            $"Semantic error: invalid method call " +
+                            $"'{string.Join(".", call.Target.Parts)}'."
+                        );
+                    }
+
+
+                    string methodKey =
+                        $"{targetClass}.{targetMethod}";
+
+
+                    if (
+                        !methods.TryGetValue(
+                            methodKey,
+                            out MethodDeclarationSyntax? target
+                        )
+                    )
+                    {
+                        throw new Exception(
+                            $"Semantic error: method " +
+                            $"'{methodKey}' does not exist."
+                        );
+                    }
+
+
+                    if (!target.IsStatic)
+                    {
+                        throw new Exception(
+                            $"Semantic error: method " +
+                            $"'{methodKey}' is not static."
+                        );
+                    }
+
+
+                    output.Add(
+                        new SemanticMethodCall(
+                            MakeMethodLabel(
+                                targetClass,
+                                targetMethod
+                            )
+                        )
+                    );
+
+
+                    continue;
+                }
+
+
+                // =====================================================
+                // Assignment
                 // =====================================================
 
                 if (
@@ -201,8 +384,17 @@ namespace NESOOP.Compiler
             }
 
 
-            return new SemanticProgram(output);
+            return new SemanticMethod(
+                className,
+                method.Name,
+                MakeMethodLabel(
+                    className,
+                    method.Name
+                ),
+                output
+            );
         }
+
 
 
         private static SemanticValue ResolveValue(
@@ -210,11 +402,14 @@ namespace NESOOP.Compiler
             Dictionary<string, SemanticByteDeclaration> variables
         )
         {
-            // ---------------------------------------------------------
+            // =========================================================
             // Number
-            // ---------------------------------------------------------
+            // =========================================================
 
-            if (expression is NumberExpressionSyntax number)
+            if (
+                expression
+                is NumberExpressionSyntax number
+            )
             {
                 if (
                     number.Value < 0 ||
@@ -236,9 +431,9 @@ namespace NESOOP.Compiler
             }
 
 
-            // ---------------------------------------------------------
+            // =========================================================
             // Variable
-            // ---------------------------------------------------------
+            // =========================================================
 
             if (
                 expression
@@ -267,16 +462,19 @@ namespace NESOOP.Compiler
             }
 
 
-            // ---------------------------------------------------------
+            // =========================================================
             // Addition
-            // ---------------------------------------------------------
+            // =========================================================
 
             if (
                 expression
                 is BinaryExpressionSyntax binary
             )
             {
-                if (binary.OperatorToken.Kind != TokenKind.Plus)
+                if (
+                    binary.OperatorToken.Kind
+                    != TokenKind.Plus
+                )
                 {
                     throw new Exception(
                         $"Semantic error: unsupported operator " +
@@ -285,23 +483,16 @@ namespace NESOOP.Compiler
                 }
 
 
-                SemanticValue left =
+                return new SemanticBinaryAdd(
                     ResolveValue(
                         binary.Left,
                         variables
-                    );
+                    ),
 
-
-                SemanticValue right =
                     ResolveValue(
                         binary.Right,
                         variables
-                    );
-
-
-                return new SemanticBinaryAdd(
-                    left,
-                    right
+                    )
                 );
             }
 
@@ -309,6 +500,16 @@ namespace NESOOP.Compiler
             throw new Exception(
                 "Semantic error: unsupported expression."
             );
+        }
+
+
+
+        private static string MakeMethodLabel(
+            string className,
+            string methodName
+        )
+        {
+            return $"{className}_{methodName}";
         }
     }
 }

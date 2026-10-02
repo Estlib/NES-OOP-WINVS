@@ -104,8 +104,59 @@ namespace NESOOP.Compiler
                 return ParseVariableDeclaration();
             }
 
-            return ParseAssignment();
+            return ParseIdentifierStatement();
         }
+
+        private StatementSyntax ParseIdentifierStatement()
+        {
+            MemberAccessExpressionSyntax target =
+                ParseMemberAccess();
+
+
+            // ---------------------------------------------------------
+            // Method call:
+            //
+            // SetColor();
+            //
+            // or:
+            //
+            // Palette.SetColor();
+            // ---------------------------------------------------------
+
+            if (Current.Kind == TokenKind.LeftParen)
+            {
+                Expect(TokenKind.LeftParen);
+                Expect(TokenKind.RightParen);
+                Expect(TokenKind.Semicolon);
+
+                return new MethodCallStatementSyntax(
+                    target
+                );
+            }
+
+
+            // ---------------------------------------------------------
+            // Otherwise it must be an assignment:
+            //
+            // color = ...
+            //
+            // Screen.BackgroundColor = ...
+            // ---------------------------------------------------------
+
+            Expect(TokenKind.Equals);
+
+            ExpressionSyntax value =
+                ParseExpression();
+
+            Expect(TokenKind.Semicolon);
+
+
+            return new AssignmentStatementSyntax(
+                target,
+                value
+            );
+        }
+
         private VariableDeclarationStatementSyntax ParseVariableDeclaration()
         {
             // byte

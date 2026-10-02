@@ -46,6 +46,10 @@ namespace NESOOP.Compiler
         ExpressionSyntax Value
     ) : StatementSyntax;
 
+    public sealed record MethodCallStatementSyntax(
+    MemberAccessExpressionSyntax Target
+    ) : StatementSyntax;
+
 
     // =========================================================
     // Expressions
@@ -76,4 +80,6 @@ namespace NESOOP.Compiler
     public sealed record MemberAccessExpressionSyntax(
         IReadOnlyList<string> Parts
     );
+
+
 }

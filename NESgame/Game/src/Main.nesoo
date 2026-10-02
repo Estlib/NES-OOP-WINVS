@@ -2,9 +2,15 @@ class Game
 {
     static void Start()
     {
-        byte color = 0x2B;
-        color = color + 1;
+        Palette.SetSpookyColor();
+    }
+}
 
-        Screen.BackgroundColor = color;
+
+class Palette
+{
+    static void SetSpookyColor()
+    {
+        Screen.BackgroundColor = 0x2B;
     }
 }

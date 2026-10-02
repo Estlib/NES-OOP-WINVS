@@ -6,27 +6,26 @@
 .segment "BSS"
 
 __nesoop_expr_temp: .res 1
-Game_Start_color: .res 1
 
 .segment "CODE"
 
 .export Game_Start
 
+; ----------------------------------------------------------
+; Game.Start()
+; ----------------------------------------------------------
 .proc Game_Start
 
-    ; byte color
-    lda #$2B
-    sta Game_Start_color
+    jsr Palette_SetSpookyColor
 
-    ; variable assignment
-    lda Game_Start_color
-    pha
-    lda #$01
-    sta __nesoop_expr_temp
-    pla
-    clc
-    adc __nesoop_expr_temp
-    sta Game_Start_color
+    rts
+
+.endproc
+
+; ----------------------------------------------------------
+; Palette.SetSpookyColor()
+; ----------------------------------------------------------
+.proc Palette_SetSpookyColor
 
     ; Screen.BackgroundColor
     lda $2002
@@ -37,10 +36,11 @@ Game_Start_color: .res 1
     lda #$00
     sta $2006
 
-    lda Game_Start_color
+    lda #$2B
     and #$3F
     sta $2007
 
     rts
 
 .endproc
+

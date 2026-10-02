@@ -5,6 +5,14 @@ using System.Text;
 namespace NESOOP.Compiler
 {
     public sealed record SemanticProgram(
+        IReadOnlyList<SemanticMethod> Methods
+    );
+
+
+    public sealed record SemanticMethod(
+        string ClassName,
+        string Name,
+        string Label,
         IReadOnlyList<SemanticStatement> Statements
     );
 
@@ -31,6 +39,11 @@ namespace NESOOP.Compiler
 
     public sealed record SemanticBackgroundColorAssignment(
         SemanticValue Value
+    ) : SemanticStatement;
+
+
+    public sealed record SemanticMethodCall(
+        string TargetLabel
     ) : SemanticStatement;
 
 
