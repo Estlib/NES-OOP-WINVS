@@ -278,56 +278,18 @@ namespace NESOOP.Compiler
 
 
             // =========================================================
-            // Background colour
+            // NES built-in assignment
             // =========================================================
 
             if (
                 statement
-                is SemanticBackgroundColorAssignment background
+                is SemanticBuiltInAssignment builtIn
             )
             {
-                output.AppendLine(
-                    "    lda $2002"
-                );
-
-                output.AppendLine();
-
-                output.AppendLine(
-                    "    lda #$3F"
-                );
-
-                output.AppendLine(
-                    "    sta $2006"
-                );
-
-                output.AppendLine();
-
-                output.AppendLine(
-                    "    lda #$00"
-                );
-
-                output.AppendLine(
-                    "    sta $2006"
-                );
-
-                output.AppendLine();
-
-
-                GenerateLoadValue(
+                GenerateBuiltInAssignment(
                     output,
-                    background.Value
+                    builtIn
                 );
-
-
-                output.AppendLine(
-                    "    and #$3F"
-                );
-
-                output.AppendLine(
-                    "    sta $2007"
-                );
-
-                output.AppendLine();
 
                 return;
             }
@@ -336,6 +298,87 @@ namespace NESOOP.Compiler
             throw new Exception(
                 "Internal compiler error: unknown statement."
             );
+        }
+
+        private static void GenerateBuiltInAssignment(
+            StringBuilder output,
+            SemanticBuiltInAssignment assignment
+        )
+        {
+            switch (assignment.Member)
+            {
+                // =====================================================
+                // Screen.BackgroundColor
+                // =====================================================
+
+                case NesBuiltInMember.ScreenBackgroundColor:
+
+                    output.AppendLine(
+                        "    ; Screen.BackgroundColor"
+                    );
+
+
+                    // Reset PPU address latch
+                    output.AppendLine(
+                        "    lda $2002"
+                    );
+
+                    output.AppendLine();
+
+
+                    // Palette address $3F00
+                    output.AppendLine(
+                        "    lda #$3F"
+                    );
+
+                    output.AppendLine(
+                        "    sta $2006"
+                    );
+
+                    output.AppendLine();
+
+
+                    output.AppendLine(
+                        "    lda #$00"
+                    );
+
+                    output.AppendLine(
+                        "    sta $2006"
+                    );
+
+                    output.AppendLine();
+
+
+                    // Load whatever expression the programmer supplied.
+                    GenerateLoadValue(
+                        output,
+                        assignment.Value
+                    );
+
+
+                    // NES palette index occupies six bits.
+                    output.AppendLine(
+                        "    and #$3F"
+                    );
+
+
+                    output.AppendLine(
+                        "    sta $2007"
+                    );
+
+                    output.AppendLine();
+
+                    return;
+
+
+                default:
+
+                    throw new Exception(
+                        $"Internal compiler error: " +
+                        $"NES built-in '{assignment.Member}' " +
+                        $"has no code generator."
+                    );
+            }
         }
 
 

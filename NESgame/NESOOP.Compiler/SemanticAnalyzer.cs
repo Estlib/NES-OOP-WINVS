@@ -445,22 +445,55 @@ namespace NESOOP.Compiler
                     // Screen.BackgroundColor = ...
                     // -------------------------------------------------
 
-                    bool isBackgroundColor =
-                        assignment.Target.Parts.Count == 2 &&
-                        assignment.Target.Parts[0] == "Screen" &&
-                        assignment.Target.Parts[1] == "BackgroundColor";
+                    // -------------------------------------------------
+                    // NES built-in member
+                    //
+                    // Example:
+                    //
+                    // Screen.BackgroundColor = value;
+                    // -------------------------------------------------
 
-
-                    if (isBackgroundColor)
+                    if (
+                        NesBuiltIns.TryResolveMember(
+                            assignment.Target.Parts,
+                            out NesBuiltInDefinition? builtIn
+                        )
+                    )
                     {
+                        if (!builtIn.CanWrite)
+                        {
+                            throw new Exception(
+                                $"Semantic error: NES built-in member " +
+                                $"'{builtIn.TypeName}.{builtIn.MemberName}' " +
+                                $"cannot be written to."
+                            );
+                        }
+
+
+                        SemanticValue value =
+                            ResolveValue(
+                                assignment.Value,
+                                method.ClassName,
+                                variables,
+                                methods
+                            );
+
+
+                        // Everything in the language is byte-sized
+                        // at the moment, so this is simple for now.
+                        if (builtIn.ValueType != SemanticType.Byte)
+                        {
+                            throw new Exception(
+                                "Internal compiler error: " +
+                                "unsupported NES built-in type."
+                            );
+                        }
+
+
                         output.Add(
-                            new SemanticBackgroundColorAssignment(
-                                ResolveValue(
-                                    assignment.Value,
-                                    method.ClassName,
-                                    variables,
-                                    methods
-                                )
+                            new SemanticBuiltInAssignment(
+                                builtIn.Member,
+                                value
                             )
                         );
 

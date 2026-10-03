@@ -64,7 +64,8 @@ namespace NESOOP.Compiler
     ) : SemanticStatement;
 
 
-    public sealed record SemanticBackgroundColorAssignment(
+    public sealed record SemanticBuiltInAssignment(
+        NesBuiltInMember Member,
         SemanticValue Value
     ) : SemanticStatement;
 

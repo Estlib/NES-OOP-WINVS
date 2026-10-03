@@ -20,6 +20,7 @@ Game_Start_local_color: .res 1
     jsr Palette_AddOne
     sta Game_Start_local_color
 
+    ; Screen.BackgroundColor
     lda $2002
 
     lda #$3F
