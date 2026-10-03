@@ -33,11 +33,13 @@ namespace NESOOP.Compiler
         {
             Expect(TokenKind.Class);
 
-            Token name = Expect(TokenKind.Identifier);
+            Token name =
+                Expect(TokenKind.Identifier);
 
             Expect(TokenKind.LeftBrace);
 
-            List<MethodDeclarationSyntax> methods = new();
+            List<MethodDeclarationSyntax> methods =
+                new();
 
             while (Current.Kind != TokenKind.RightBrace)
             {
@@ -63,19 +65,84 @@ namespace NESOOP.Compiler
                 isStatic = true;
             }
 
-            Expect(TokenKind.Void);
 
-            Token name = Expect(TokenKind.Identifier);
+            TypeSyntaxKind returnType =
+                ParseType();
+
+
+            Token name =
+                Expect(TokenKind.Identifier);
+
 
             Expect(TokenKind.LeftParen);
+
+
+            List<ParameterSyntax> parameters =
+                new();
+
+
+            if (Current.Kind != TokenKind.RightParen)
+            {
+                while (true)
+                {
+                    // Only byte parameters exist for now.
+                    Expect(TokenKind.Byte);
+
+                    Token parameterName =
+                        Expect(TokenKind.Identifier);
+
+                    parameters.Add(
+                        new ParameterSyntax(
+                            parameterName.Text,
+                            parameterName
+                        )
+                    );
+
+
+                    if (Current.Kind != TokenKind.Comma)
+                        break;
+
+                    Advance();
+                }
+            }
+
+
             Expect(TokenKind.RightParen);
 
-            BlockSyntax body = ParseBlock();
+
+            BlockSyntax body =
+                ParseBlock();
+
 
             return new MethodDeclarationSyntax(
                 isStatic,
+                returnType,
                 name.Text,
+                parameters,
                 body
+            );
+        }
+
+
+        private TypeSyntaxKind ParseType()
+        {
+            if (Current.Kind == TokenKind.Void)
+            {
+                Advance();
+                return TypeSyntaxKind.Void;
+            }
+
+            if (Current.Kind == TokenKind.Byte)
+            {
+                Advance();
+                return TypeSyntaxKind.Byte;
+            }
+
+
+            throw new Exception(
+                $"Expected type, but found " +
+                $"'{Current.Text}' at line " +
+                $"{Current.Line}, column {Current.Column}."
             );
         }
 
@@ -84,16 +151,21 @@ namespace NESOOP.Compiler
         {
             Expect(TokenKind.LeftBrace);
 
-            List<StatementSyntax> statements = new();
+            List<StatementSyntax> statements =
+                new();
 
             while (Current.Kind != TokenKind.RightBrace)
             {
-                statements.Add(ParseStatement());
+                statements.Add(
+                    ParseStatement()
+                );
             }
 
             Expect(TokenKind.RightBrace);
 
-            return new BlockSyntax(statements);
+            return new BlockSyntax(
+                statements
+            );
         }
 
 
@@ -104,76 +176,30 @@ namespace NESOOP.Compiler
                 return ParseVariableDeclaration();
             }
 
-            return ParseIdentifierStatement();
-        }
 
-        private StatementSyntax ParseIdentifierStatement()
-        {
-            MemberAccessExpressionSyntax target =
-                ParseMemberAccess();
-
-
-            // ---------------------------------------------------------
-            // Method call:
-            //
-            // SetColor();
-            //
-            // or:
-            //
-            // Palette.SetColor();
-            // ---------------------------------------------------------
-
-            if (Current.Kind == TokenKind.LeftParen)
+            if (Current.Kind == TokenKind.Return)
             {
-                Expect(TokenKind.LeftParen);
-                Expect(TokenKind.RightParen);
-                Expect(TokenKind.Semicolon);
-
-                return new MethodCallStatementSyntax(
-                    target
-                );
+                return ParseReturn();
             }
 
 
-            // ---------------------------------------------------------
-            // Otherwise it must be an assignment:
-            //
-            // color = ...
-            //
-            // Screen.BackgroundColor = ...
-            // ---------------------------------------------------------
-
-            Expect(TokenKind.Equals);
-
-            ExpressionSyntax value =
-                ParseExpression();
-
-            Expect(TokenKind.Semicolon);
-
-
-            return new AssignmentStatementSyntax(
-                target,
-                value
-            );
+            return ParseIdentifierStatement();
         }
 
-        private VariableDeclarationStatementSyntax ParseVariableDeclaration()
+
+        private VariableDeclarationStatementSyntax
+            ParseVariableDeclaration()
         {
-            // byte
             Expect(TokenKind.Byte);
 
-            // color
             Token name =
                 Expect(TokenKind.Identifier);
 
-            // =
             Expect(TokenKind.Equals);
 
-            // 0x2B
             ExpressionSyntax initializer =
                 ParseExpression();
 
-            // ;
             Expect(TokenKind.Semicolon);
 
 
@@ -185,10 +211,69 @@ namespace NESOOP.Compiler
         }
 
 
-        private AssignmentStatementSyntax ParseAssignment()
+        private ReturnStatementSyntax ParseReturn()
+        {
+            Token returnToken =
+                Expect(TokenKind.Return);
+
+
+            // return;
+            if (Current.Kind == TokenKind.Semicolon)
+            {
+                Advance();
+
+                return new ReturnStatementSyntax(
+                    null,
+                    returnToken
+                );
+            }
+
+
+            // return expression;
+            ExpressionSyntax value =
+                ParseExpression();
+
+            Expect(TokenKind.Semicolon);
+
+
+            return new ReturnStatementSyntax(
+                value,
+                returnToken
+            );
+        }
+
+
+        private StatementSyntax ParseIdentifierStatement()
         {
             MemberAccessExpressionSyntax target =
                 ParseMemberAccess();
+
+
+            // ---------------------------------------------------------
+            // Method call statement
+            //
+            // DoThing();
+            // Palette.DoThing();
+            // ---------------------------------------------------------
+
+            if (Current.Kind == TokenKind.LeftParen)
+            {
+                IReadOnlyList<ExpressionSyntax> arguments =
+                    ParseArguments();
+
+                Expect(TokenKind.Semicolon);
+
+
+                return new MethodCallStatementSyntax(
+                    target,
+                    arguments
+                );
+            }
+
+
+            // ---------------------------------------------------------
+            // Assignment
+            // ---------------------------------------------------------
 
             Expect(TokenKind.Equals);
 
@@ -197,11 +282,17 @@ namespace NESOOP.Compiler
 
             Expect(TokenKind.Semicolon);
 
+
             return new AssignmentStatementSyntax(
                 target,
                 value
             );
         }
+
+
+        // =============================================================
+        // Expressions
+        // =============================================================
 
         private ExpressionSyntax ParseExpression()
         {
@@ -211,7 +302,8 @@ namespace NESOOP.Compiler
 
             while (Current.Kind == TokenKind.Plus)
             {
-                Token operatorToken = Current;
+                Token operatorToken =
+                    Current;
 
                 Advance();
 
@@ -234,44 +326,115 @@ namespace NESOOP.Compiler
 
         private ExpressionSyntax ParsePrimaryExpression()
         {
-            switch (Current.Kind)
+            // ---------------------------------------------------------
+            // Number
+            // ---------------------------------------------------------
+
+            if (Current.Kind == TokenKind.Number)
             {
-                case TokenKind.Number:
-                    return ParseNumber();
-
-
-                case TokenKind.Identifier:
-                    {
-                        Token token = Current;
-
-                        Advance();
-
-
-                        return new IdentifierExpressionSyntax(
-                            token.Text,
-                            token
-                        );
-                    }
-
-
-                default:
-                    throw new Exception(
-                        $"Expected expression, but found " +
-                        $"'{Current.Text}' at " +
-                        $"line {Current.Line}, " +
-                        $"column {Current.Column}."
-                    );
+                return ParseNumber();
             }
+
+
+            // ---------------------------------------------------------
+            // Identifier / method call
+            // ---------------------------------------------------------
+
+            if (Current.Kind == TokenKind.Identifier)
+            {
+                Token firstToken =
+                    Current;
+
+
+                MemberAccessExpressionSyntax target =
+                    ParseMemberAccess();
+
+
+                // Method call expression
+                if (Current.Kind == TokenKind.LeftParen)
+                {
+                    IReadOnlyList<ExpressionSyntax> arguments =
+                        ParseArguments();
+
+
+                    return new MethodCallExpressionSyntax(
+                        target,
+                        arguments
+                    );
+                }
+
+
+                // Bare variable identifier
+                if (target.Parts.Count == 1)
+                {
+                    return new IdentifierExpressionSyntax(
+                        target.Parts[0],
+                        firstToken
+                    );
+                }
+
+
+                throw new Exception(
+                    $"Unexpected member access expression at " +
+                    $"line {firstToken.Line}, " +
+                    $"column {firstToken.Column}."
+                );
+            }
+
+
+            throw new Exception(
+                $"Expected expression, but found " +
+                $"'{Current.Text}' at line " +
+                $"{Current.Line}, column {Current.Column}."
+            );
+        }
+
+
+        private IReadOnlyList<ExpressionSyntax> ParseArguments()
+        {
+            Expect(TokenKind.LeftParen);
+
+            List<ExpressionSyntax> arguments =
+                new();
+
+
+            if (Current.Kind != TokenKind.RightParen)
+            {
+                while (true)
+                {
+                    arguments.Add(
+                        ParseExpression()
+                    );
+
+
+                    if (Current.Kind != TokenKind.Comma)
+                        break;
+
+
+                    Advance();
+                }
+            }
+
+
+            Expect(TokenKind.RightParen);
+
+            return arguments;
         }
 
 
         private MemberAccessExpressionSyntax ParseMemberAccess()
         {
-            List<string> parts = new();
+            List<string> parts =
+                new();
 
-            Token first = Expect(TokenKind.Identifier);
 
-            parts.Add(first.Text);
+            Token first =
+                Expect(TokenKind.Identifier);
+
+            parts.Add(
+                first.Text
+            );
+
 
             while (Current.Kind == TokenKind.Dot)
             {
@@ -280,18 +443,26 @@ namespace NESOOP.Compiler
                 Token next =
                     Expect(TokenKind.Identifier);
 
-                parts.Add(next.Text);
+                parts.Add(
+                    next.Text
+                );
             }
 
-            return new MemberAccessExpressionSyntax(parts);
+
+            return new MemberAccessExpressionSyntax(
+                parts
+            );
         }
 
 
         private NumberExpressionSyntax ParseNumber()
         {
-            Token token = Expect(TokenKind.Number);
+            Token token =
+                Expect(TokenKind.Number);
+
 
             int value;
+
 
             if (
                 token.Text.StartsWith("0x") ||
@@ -305,8 +476,11 @@ namespace NESOOP.Compiler
             }
             else
             {
-                value = int.Parse(token.Text);
+                value = int.Parse(
+                    token.Text
+                );
             }
+
 
             return new NumberExpressionSyntax(
                 value,
@@ -315,19 +489,26 @@ namespace NESOOP.Compiler
         }
 
 
-        private Token Expect(TokenKind kind)
+        // =============================================================
+        // Helpers
+        // =============================================================
+
+        private Token Expect(
+            TokenKind kind
+        )
         {
             if (Current.Kind != kind)
             {
                 throw new Exception(
                     $"Expected {kind}, but found " +
-                    $"'{Current.Text}' at " +
-                    $"line {Current.Line}, " +
-                    $"column {Current.Column}."
+                    $"'{Current.Text}' at line " +
+                    $"{Current.Line}, column {Current.Column}."
                 );
             }
 
-            Token token = Current;
+
+            Token token =
+                Current;
 
             Advance();
 

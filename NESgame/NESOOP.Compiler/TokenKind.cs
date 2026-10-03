@@ -10,6 +10,7 @@ namespace NESOOP.Compiler
         Class,
         Static,
         Void,
+        Return,
 
         //datatypes
         Byte,
@@ -27,6 +28,7 @@ namespace NESOOP.Compiler
         Equals,
         Semicolon,
         Plus,
+        Comma,
 
         // End of source
         EndOfFile

@@ -14,7 +14,8 @@ namespace NESOOP.Compiler
             SemanticProgram program
         )
         {
-            StringBuilder output = new();
+            StringBuilder output =
+                new();
 
 
             output.AppendLine(
@@ -26,15 +27,10 @@ namespace NESOOP.Compiler
             );
 
             output.AppendLine(
-                "; DO NOT EDIT MANUALLY"
-            );
-
-            output.AppendLine(
                 "; =========================================================="
             );
 
             output.AppendLine();
-
 
 
             // =========================================================
@@ -53,6 +49,23 @@ namespace NESOOP.Compiler
             );
 
 
+            // Parameters
+            foreach (
+                SemanticParameter parameter
+                in program.Methods
+                    .SelectMany(
+                        method =>
+                            method.Parameters
+                    )
+            )
+            {
+                output.AppendLine(
+                    $"{parameter.StorageName}: .res 1"
+                );
+            }
+
+
+            // Locals
             foreach (
                 SemanticByteDeclaration variable
                 in program.Methods
@@ -72,7 +85,6 @@ namespace NESOOP.Compiler
             output.AppendLine();
 
 
-
             // =========================================================
             // CODE
             // =========================================================
@@ -84,18 +96,12 @@ namespace NESOOP.Compiler
             output.AppendLine();
 
 
-            // The handwritten NES runtime calls this.
             output.AppendLine(
                 ".export Game_Start"
             );
 
             output.AppendLine();
 
-
-
-            // =========================================================
-            // Generate every method
-            // =========================================================
 
             foreach (
                 SemanticMethod method
@@ -113,22 +119,13 @@ namespace NESOOP.Compiler
         }
 
 
-
         private static void GenerateMethod(
             StringBuilder output,
             SemanticMethod method
         )
         {
             output.AppendLine(
-                $"; ----------------------------------------------------------"
-            );
-
-            output.AppendLine(
                 $"; {method.ClassName}.{method.Name}()"
-            );
-
-            output.AppendLine(
-                $"; ----------------------------------------------------------"
             );
 
 
@@ -151,10 +148,19 @@ namespace NESOOP.Compiler
             }
 
 
-            // Every void method returns using RTS.
-            output.AppendLine(
-                "    rts"
-            );
+            // If there wasn't an explicit return,
+            // void methods automatically RTS.
+            if (
+                method.Statements.Count == 0 ||
+                method.Statements[^1]
+                is not SemanticReturnStatement
+            )
+            {
+                output.AppendLine(
+                    "    rts"
+                );
+            }
+
 
             output.AppendLine();
 
@@ -166,14 +172,13 @@ namespace NESOOP.Compiler
         }
 
 
-
         private static void GenerateStatement(
             StringBuilder output,
             SemanticStatement statement
         )
         {
             // =========================================================
-            // Local byte
+            // Local variable
             // =========================================================
 
             if (
@@ -181,11 +186,6 @@ namespace NESOOP.Compiler
                 is SemanticByteDeclaration variable
             )
             {
-                output.AppendLine(
-                    $"    ; byte {variable.Name}"
-                );
-
-
                 GenerateLoadValue(
                     output,
                     variable.Initializer
@@ -202,9 +202,8 @@ namespace NESOOP.Compiler
             }
 
 
-
             // =========================================================
-            // Variable assignment
+            // Assignment
             // =========================================================
 
             if (
@@ -228,26 +227,48 @@ namespace NESOOP.Compiler
             }
 
 
-
             // =========================================================
-            // Method call
-            //
-            // This is where:
-            //
-            // SetColor();
-            //
-            // becomes:
-            //
-            // JSR Game_SetColor
+            // Method-call statement
             // =========================================================
 
             if (
                 statement
-                is SemanticMethodCall call
+                is SemanticMethodCallStatement call
             )
             {
+                GenerateCall(
+                    output,
+                    call.Call
+                );
+
+
+                output.AppendLine();
+
+                return;
+            }
+
+
+            // =========================================================
+            // Return
+            // =========================================================
+
+            if (
+                statement
+                is SemanticReturnStatement returnStatement
+            )
+            {
+                if (returnStatement.Value != null)
+                {
+                    // Leave returned byte in A.
+                    GenerateLoadValue(
+                        output,
+                        returnStatement.Value
+                    );
+                }
+
+
                 output.AppendLine(
-                    $"    jsr {call.TargetLabel}"
+                    "    rts"
                 );
 
                 output.AppendLine();
@@ -256,9 +277,8 @@ namespace NESOOP.Compiler
             }
 
 
-
             // =========================================================
-            // Screen.BackgroundColor
+            // Background colour
             // =========================================================
 
             if (
@@ -267,16 +287,10 @@ namespace NESOOP.Compiler
             )
             {
                 output.AppendLine(
-                    "    ; Screen.BackgroundColor"
-                );
-
-
-                output.AppendLine(
                     "    lda $2002"
                 );
 
                 output.AppendLine();
-
 
                 output.AppendLine(
                     "    lda #$3F"
@@ -287,7 +301,6 @@ namespace NESOOP.Compiler
                 );
 
                 output.AppendLine();
-
 
                 output.AppendLine(
                     "    lda #$00"
@@ -310,7 +323,6 @@ namespace NESOOP.Compiler
                     "    and #$3F"
                 );
 
-
                 output.AppendLine(
                     "    sta $2007"
                 );
@@ -321,14 +333,15 @@ namespace NESOOP.Compiler
             }
 
 
-
             throw new Exception(
-                "Internal compiler error: " +
-                "unknown semantic statement."
+                "Internal compiler error: unknown statement."
             );
         }
 
 
+        // =============================================================
+        // Load a semantic value into A
+        // =============================================================
 
         private static void GenerateLoadValue(
             StringBuilder output,
@@ -346,7 +359,6 @@ namespace NESOOP.Compiler
                     return;
 
 
-
                 case SemanticVariableReference variable:
 
                     output.AppendLine(
@@ -354,7 +366,6 @@ namespace NESOOP.Compiler
                     );
 
                     return;
-
 
 
                 case SemanticBinaryAdd add:
@@ -399,14 +410,62 @@ namespace NESOOP.Compiler
                     return;
 
 
+                case SemanticMethodCallValue call:
+
+                    GenerateCall(
+                        output,
+                        call.Call
+                    );
+
+                    // Result is already in A.
+                    return;
+
 
                 default:
 
                     throw new Exception(
-                        "Internal compiler error: " +
-                        "cannot load semantic value."
+                        "Internal compiler error: cannot load value."
                     );
             }
+        }
+
+
+        // =============================================================
+        // Calling convention
+        // =============================================================
+
+        private static void GenerateCall(
+            StringBuilder output,
+            SemanticCall call
+        )
+        {
+            // Copy each argument into the target method's
+            // parameter RAM slot.
+            for (
+                int i = 0;
+                i < call.Arguments.Count;
+                i++
+            )
+            {
+                GenerateLoadValue(
+                    output,
+                    call.Arguments[i]
+                );
+
+
+                output.AppendLine(
+                    $"    sta {call.ParameterStorageNames[i]}"
+                );
+            }
+
+
+            output.AppendLine(
+                $"    jsr {call.TargetLabel}"
+            );
+
+
+            // If this is a byte-returning method,
+            // its return value is now in A.
         }
     }
 }

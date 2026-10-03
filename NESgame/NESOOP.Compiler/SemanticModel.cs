@@ -4,6 +4,13 @@ using System.Text;
 
 namespace NESOOP.Compiler
 {
+    public enum SemanticType
+    {
+        Void,
+        Byte
+    }
+
+
     public sealed record SemanticProgram(
         IReadOnlyList<SemanticMethod> Methods
     );
@@ -13,7 +20,27 @@ namespace NESOOP.Compiler
         string ClassName,
         string Name,
         string Label,
+        SemanticType ReturnType,
+        IReadOnlyList<SemanticParameter> Parameters,
         IReadOnlyList<SemanticStatement> Statements
+    );
+
+
+    public sealed record SemanticParameter(
+        string Name,
+        string StorageName
+    );
+
+
+    // =========================================================
+    // Calls
+    // =========================================================
+
+    public sealed record SemanticCall(
+        string TargetLabel,
+        IReadOnlyList<string> ParameterStorageNames,
+        IReadOnlyList<SemanticValue> Arguments,
+        SemanticType ReturnType
     );
 
 
@@ -42,8 +69,13 @@ namespace NESOOP.Compiler
     ) : SemanticStatement;
 
 
-    public sealed record SemanticMethodCall(
-        string TargetLabel
+    public sealed record SemanticMethodCallStatement(
+        SemanticCall Call
+    ) : SemanticStatement;
+
+
+    public sealed record SemanticReturnStatement(
+        SemanticValue? Value
     ) : SemanticStatement;
 
 
@@ -67,6 +99,11 @@ namespace NESOOP.Compiler
     public sealed record SemanticBinaryAdd(
         SemanticValue Left,
         SemanticValue Right
+    ) : SemanticValue;
+
+
+    public sealed record SemanticMethodCallValue(
+        SemanticCall Call
     ) : SemanticValue;
     /*Later this is where things such as classes, fields, methods, object layouts, RAM locations, banks and tasks will live.*/
 }

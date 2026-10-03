@@ -194,6 +194,18 @@ namespace NESOOP.Compiler
 
                         Advance();
                         break;
+                    case ',':
+                        tokens.Add(
+                            new Token(
+                                TokenKind.Comma,
+                                ",",
+                                line,
+                                column
+                            )
+                        );
+
+                        Advance();
+                        break;
 
 
                     default:
@@ -245,6 +257,7 @@ namespace NESOOP.Compiler
                 "static" => TokenKind.Static,
                 "void" => TokenKind.Void,
                 "byte" => TokenKind.Byte,
+                "return" => TokenKind.Return,
 
                 _ => TokenKind.Identifier
             };
