@@ -7,7 +7,9 @@
 
 __nesoop_expr_temp: .res 1
 Palette_AddOne_param_value: .res 1
-Game_Start_local_0_value: .res 1
+Game_Start_local_0_a: .res 1
+Game_Start_local_1_b: .res 1
+Game_Start_local_2_value: .res 1
 
 .segment "CODE"
 
@@ -23,28 +25,61 @@ Game_Start_local_0_value: .res 1
 ; ----------------------------------------------------------
 .proc Game_Start
 
+    ; Byte a
+    lda #$3C
+    sta Game_Start_local_0_a
+
+    ; Byte b
+    lda #$0F
+    sta Game_Start_local_1_b
+
     ; Byte value
-    lda #$04
-    sta Game_Start_local_0_value
+    lda Game_Start_local_0_a
+    pha
+    lda Game_Start_local_1_b
+    sta __nesoop_expr_temp
+    pla
+    and __nesoop_expr_temp
+    pha
+    lda #$01
+    tax
+    pla
+    cpx #$00
+    beq __nesoop_shift_end_1
+__nesoop_shift_loop_0:
+    asl a
+    dex
+    bne __nesoop_shift_loop_0
+__nesoop_shift_end_1:
+    sta Game_Start_local_2_value
+
+    lda Game_Start_local_2_value
+    pha
+    lda #$02
+    sta __nesoop_expr_temp
+    pla
+    sec
+    sbc __nesoop_expr_temp
+    sta Game_Start_local_2_value
 
     ; if condition
-    lda Game_Start_local_0_value
+    lda Game_Start_local_2_value
     pha
-    lda #$05
+    lda #$16
     sta __nesoop_expr_temp
     pla
     cmp __nesoop_expr_temp
-    beq __nesoop_compare_true_3
-__nesoop_compare_false_4:
+    beq __nesoop_compare_true_5
+__nesoop_compare_false_6:
     lda #$00
-    jmp __nesoop_compare_end_5
-__nesoop_compare_true_3:
+    jmp __nesoop_compare_end_7
+__nesoop_compare_true_5:
     lda #$01
-__nesoop_compare_end_5:
+__nesoop_compare_end_7:
     cmp #$00
-    bne __nesoop_if_then_0
-    jmp __nesoop_if_else_1
-__nesoop_if_then_0:
+    bne __nesoop_if_then_2
+    jmp __nesoop_if_else_3
+__nesoop_if_then_2:
     lda #$04
     sta NESRT_Screen_SetTile_x
     lda #$07
@@ -53,8 +88,8 @@ __nesoop_if_then_0:
     sta NESRT_Screen_SetTile_tile
     jsr NESRT_Screen_SetTile
 
-    jmp __nesoop_if_end_2
-__nesoop_if_else_1:
+    jmp __nesoop_if_end_4
+__nesoop_if_else_3:
     lda #$08
     sta NESRT_Screen_SetTile_x
     lda #$07
@@ -63,7 +98,7 @@ __nesoop_if_else_1:
     sta NESRT_Screen_SetTile_tile
     jsr NESRT_Screen_SetTile
 
-__nesoop_if_end_2:
+__nesoop_if_end_4:
 
     rts
 

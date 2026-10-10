@@ -762,6 +762,183 @@ namespace NESOOP.Compiler
 
 
                     return;
+                case SemanticBinarySubtract subtract:
+
+                    GenerateLoadValue(
+                        output,
+                        subtract.Left
+                    );
+
+                    output.AppendLine(
+                        "    pha"
+                    );
+
+
+                    GenerateLoadValue(
+                        output,
+                        subtract.Right
+                    );
+
+                    output.AppendLine(
+                        $"    sta {ExpressionTemp}"
+                    );
+
+
+                    output.AppendLine(
+                        "    pla"
+                    );
+
+                    // 6502 subtraction requires carry SET.
+                    output.AppendLine(
+                        "    sec"
+                    );
+
+                    output.AppendLine(
+                        $"    sbc {ExpressionTemp}"
+                    );
+
+                    return;
+                case SemanticBinaryBitwise bitwise:
+
+                    GenerateLoadValue(
+                        output,
+                        bitwise.Left
+                    );
+
+                    output.AppendLine(
+                        "    pha"
+                    );
+
+
+                    GenerateLoadValue(
+                        output,
+                        bitwise.Right
+                    );
+
+                    output.AppendLine(
+                        $"    sta {ExpressionTemp}"
+                    );
+
+
+                    output.AppendLine(
+                        "    pla"
+                    );
+
+
+                    switch (bitwise.Operator)
+                    {
+                        case SemanticBitwiseOperator.And:
+
+                            output.AppendLine(
+                                $"    and {ExpressionTemp}"
+                            );
+
+                            break;
+
+
+                        case SemanticBitwiseOperator.Xor:
+
+                            output.AppendLine(
+                                $"    eor {ExpressionTemp}"
+                            );
+
+                            break;
+
+
+                        case SemanticBitwiseOperator.Or:
+
+                            output.AppendLine(
+                                $"    ora {ExpressionTemp}"
+                            );
+
+                            break;
+                    }
+
+                    return;
+                case SemanticShift shift:
+
+                    // Preserve value being shifted.
+                    GenerateLoadValue(
+                        output,
+                        shift.Left
+                    );
+
+                    output.AppendLine(
+                        "    pha"
+                    );
+
+
+                    // Shift count -> X
+                    GenerateLoadValue(
+                        output,
+                        shift.Right
+                    );
+
+                    output.AppendLine(
+                        "    tax"
+                    );
+
+
+                    // Restore value -> A
+                    output.AppendLine(
+                        "    pla"
+                    );
+
+
+                    string shiftLoop =
+                        NextLabel("shift_loop");
+
+                    string shiftEnd =
+                        NextLabel("shift_end");
+
+
+                    // Shifting zero times means no change.
+                    output.AppendLine(
+                        "    cpx #$00"
+                    );
+
+                    output.AppendLine(
+                        $"    beq {shiftEnd}"
+                    );
+
+
+                    output.AppendLine(
+                        $"{shiftLoop}:"
+                    );
+
+
+                    if (
+                        shift.Operator
+                        == SemanticShiftOperator.Left
+                    )
+                    {
+                        output.AppendLine(
+                            "    asl a"
+                        );
+                    }
+                    else
+                    {
+                        output.AppendLine(
+                            "    lsr a"
+                        );
+                    }
+
+
+                    output.AppendLine(
+                        "    dex"
+                    );
+
+                    output.AppendLine(
+                        $"    bne {shiftLoop}"
+                    );
+
+
+                    output.AppendLine(
+                        $"{shiftEnd}:"
+                    );
+
+                    return;
+
 
 
                 // -----------------------------------------------------

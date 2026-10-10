@@ -36,6 +36,12 @@ namespace NESOOP.Compiler
         Semicolon,
         Plus,
         Comma,
+        Minus,
+        Ampersand,
+        Pipe,
+        Caret,
+        ShiftLeft,
+        ShiftRight,
 
         //logic operators & comparison
         EqualsEquals,

@@ -2,9 +2,14 @@ class Game
 {
     static void Start()
     {
-        byte value = 4;
+        byte a = 0x3C;
+        byte b = 0x0F;
 
-        if (value == 5)
+        byte value = (a & b) << 1;
+
+        value = value - 2;
+
+        if (value == 0x16)
         {
             Screen.SetTile(4, 7, 1);
         }

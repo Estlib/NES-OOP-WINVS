@@ -11,7 +11,19 @@ namespace NESOOP.Compiler
         Bool
     }
 
+    public enum SemanticBitwiseOperator
+    {
+        And,
+        Xor,
+        Or
+    }
 
+
+    public enum SemanticShiftOperator
+    {
+        Left,
+        Right
+    }
     public enum SemanticComparisonOperator
     {
         Equal,
@@ -125,7 +137,24 @@ namespace NESOOP.Compiler
         SemanticValue Left,
         SemanticValue Right
     ) : SemanticValue;
+    public sealed record SemanticBinarySubtract(
+    SemanticValue Left,
+    SemanticValue Right
+) : SemanticValue;
 
+
+    public sealed record SemanticBinaryBitwise(
+        SemanticValue Left,
+        SemanticBitwiseOperator Operator,
+        SemanticValue Right
+    ) : SemanticValue;
+
+
+    public sealed record SemanticShift(
+        SemanticValue Left,
+        SemanticShiftOperator Operator,
+        SemanticValue Right
+    ) : SemanticValue;
 
     public sealed record SemanticComparison(
         SemanticValue Left,

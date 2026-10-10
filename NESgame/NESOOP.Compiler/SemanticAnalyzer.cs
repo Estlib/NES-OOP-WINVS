@@ -858,7 +858,96 @@ namespace NESOOP.Compiler
                         right
                     );
                 }
+                if (
+                    binary.OperatorToken.Kind
+                    == TokenKind.Minus
+                )
+                {
+                    if (
+                        leftType != SemanticType.Byte ||
+                        rightType != SemanticType.Byte
+                    )
+                    {
+                        throw new Exception(
+                            "Semantic error: '-' requires byte operands."
+                        );
+                    }
 
+
+                    return new SemanticBinarySubtract(
+                        left,
+                        right
+                    );
+                }
+                if (
+                    binary.OperatorToken.Kind == TokenKind.Ampersand ||
+                    binary.OperatorToken.Kind == TokenKind.Pipe ||
+                    binary.OperatorToken.Kind == TokenKind.Caret
+                )
+                {
+                    if (
+                        leftType != SemanticType.Byte ||
+                        rightType != SemanticType.Byte
+                    )
+                    {
+                        throw new Exception(
+                            "Semantic error: bitwise operators require byte operands."
+                        );
+                    }
+
+
+                    SemanticBitwiseOperator operation =
+                        binary.OperatorToken.Kind switch
+                        {
+                            TokenKind.Ampersand =>
+                                SemanticBitwiseOperator.And,
+
+                            TokenKind.Caret =>
+                                SemanticBitwiseOperator.Xor,
+
+                            TokenKind.Pipe =>
+                                SemanticBitwiseOperator.Or,
+
+                            _ =>
+                                throw new Exception(
+                                    "Internal compiler error."
+                                )
+                        };
+
+
+                    return new SemanticBinaryBitwise(
+                        left,
+                        operation,
+                        right
+                    );
+                }
+                if (
+                    binary.OperatorToken.Kind == TokenKind.ShiftLeft ||
+                    binary.OperatorToken.Kind == TokenKind.ShiftRight
+                )
+                {
+                    if (
+                        leftType != SemanticType.Byte ||
+                        rightType != SemanticType.Byte
+                    )
+                    {
+                        throw new Exception(
+                            "Semantic error: shift operators require byte operands."
+                        );
+                    }
+
+
+                    return new SemanticShift(
+                        left,
+
+                        binary.OperatorToken.Kind
+                            == TokenKind.ShiftLeft
+                                ? SemanticShiftOperator.Left
+                                : SemanticShiftOperator.Right,
+
+                        right
+                    );
+                }
 
                 // -----------------------------------------------------
                 // Equality
@@ -1241,6 +1330,15 @@ namespace NESOOP.Compiler
                     variable.Type,
 
                 SemanticBinaryAdd =>
+                    SemanticType.Byte,
+
+                SemanticBinarySubtract =>
+                    SemanticType.Byte,
+
+                SemanticBinaryBitwise =>
+                    SemanticType.Byte,
+
+                SemanticShift =>
                     SemanticType.Byte,
 
                 SemanticComparison =>

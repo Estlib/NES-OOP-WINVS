@@ -212,7 +212,21 @@ namespace NESOOP.Compiler
                         break;
                     case '<':
 
-                        if (Peek(1) == '=')
+                        if (Peek(1) == '<')
+                        {
+                            tokens.Add(
+                                new Token(
+                                    TokenKind.ShiftLeft,
+                                    "<<",
+                                    line,
+                                    column
+                                )
+                            );
+
+                            Advance();
+                            Advance();
+                        }
+                        else if (Peek(1) == '=')
                         {
                             tokens.Add(
                                 new Token(
@@ -245,7 +259,21 @@ namespace NESOOP.Compiler
 
                     case '>':
 
-                        if (Peek(1) == '=')
+                        if (Peek(1) == '>')
+                        {
+                            tokens.Add(
+                                new Token(
+                                    TokenKind.ShiftRight,
+                                    ">>",
+                                    line,
+                                    column
+                                )
+                            );
+
+                            Advance();
+                            Advance();
+                        }
+                        else if (Peek(1) == '=')
                         {
                             tokens.Add(
                                 new Token(
@@ -300,6 +328,61 @@ namespace NESOOP.Compiler
 
                         Advance();
                         break;
+                    case '-':
+                        tokens.Add(
+                            new Token(
+                                TokenKind.Minus,
+                                "-",
+                                line,
+                                column
+                            )
+                        );
+
+                        Advance();
+                        break;
+
+
+                    case '&':
+                        tokens.Add(
+                            new Token(
+                                TokenKind.Ampersand,
+                                "&",
+                                line,
+                                column
+                            )
+                        );
+
+                        Advance();
+                        break;
+
+
+                    case '|':
+                        tokens.Add(
+                            new Token(
+                                TokenKind.Pipe,
+                                "|",
+                                line,
+                                column
+                            )
+                        );
+
+                        Advance();
+                        break;
+
+
+                    case '^':
+                        tokens.Add(
+                            new Token(
+                                TokenKind.Caret,
+                                "^",
+                                line,
+                                column
+                            )
+                        );
+
+                        Advance();
+                        break;
+
                     case ',':
                         tokens.Add(
                             new Token(

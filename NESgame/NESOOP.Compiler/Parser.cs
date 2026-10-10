@@ -366,13 +366,86 @@ namespace NESOOP.Compiler
 
         private ExpressionSyntax ParseExpression()
         {
-            return ParseEqualityExpression();
+            return ParseBitwiseOrExpression();
         }
+
+
+        private ExpressionSyntax ParseBitwiseOrExpression()
+        {
+            ExpressionSyntax left =
+                ParseBitwiseXorExpression();
+
+            while (Current.Kind == TokenKind.Pipe)
+            {
+                Token operatorToken = Current;
+                Advance();
+
+                ExpressionSyntax right =
+                    ParseBitwiseXorExpression();
+
+                left = new BinaryExpressionSyntax(
+                    left,
+                    operatorToken,
+                    right
+                );
+            }
+
+            return left;
+        }
+
+
+        private ExpressionSyntax ParseBitwiseXorExpression()
+        {
+            ExpressionSyntax left =
+                ParseBitwiseAndExpression();
+
+            while (Current.Kind == TokenKind.Caret)
+            {
+                Token operatorToken = Current;
+                Advance();
+
+                ExpressionSyntax right =
+                    ParseBitwiseAndExpression();
+
+                left = new BinaryExpressionSyntax(
+                    left,
+                    operatorToken,
+                    right
+                );
+            }
+
+            return left;
+        }
+
+
+        private ExpressionSyntax ParseBitwiseAndExpression()
+        {
+            ExpressionSyntax left =
+                ParseEqualityExpression();
+
+            while (Current.Kind == TokenKind.Ampersand)
+            {
+                Token operatorToken = Current;
+                Advance();
+
+                ExpressionSyntax right =
+                    ParseEqualityExpression();
+
+                left = new BinaryExpressionSyntax(
+                    left,
+                    operatorToken,
+                    right
+                );
+            }
+
+            return left;
+        }
+
+
         private ExpressionSyntax ParseEqualityExpression()
         {
             ExpressionSyntax left =
                 ParseComparisonExpression();
-
 
             while (
                 Current.Kind == TokenKind.EqualsEquals ||
@@ -384,10 +457,8 @@ namespace NESOOP.Compiler
 
                 Advance();
 
-
                 ExpressionSyntax right =
                     ParseComparisonExpression();
-
 
                 left = new BinaryExpressionSyntax(
                     left,
@@ -396,14 +467,14 @@ namespace NESOOP.Compiler
                 );
             }
 
-
             return left;
         }
+
+
         private ExpressionSyntax ParseComparisonExpression()
         {
             ExpressionSyntax left =
-                ParseAdditiveExpression();
-
+                ParseShiftExpression();
 
             while (
                 Current.Kind == TokenKind.Less ||
@@ -417,10 +488,8 @@ namespace NESOOP.Compiler
 
                 Advance();
 
-
                 ExpressionSyntax right =
-                    ParseAdditiveExpression();
-
+                    ParseShiftExpression();
 
                 left = new BinaryExpressionSyntax(
                     left,
@@ -429,26 +498,27 @@ namespace NESOOP.Compiler
                 );
             }
 
-
             return left;
         }
-        private ExpressionSyntax ParseAdditiveExpression()
+
+
+        private ExpressionSyntax ParseShiftExpression()
         {
             ExpressionSyntax left =
-                ParsePrimaryExpression();
+                ParseAdditiveExpression();
 
-
-            while (Current.Kind == TokenKind.Plus)
+            while (
+                Current.Kind == TokenKind.ShiftLeft ||
+                Current.Kind == TokenKind.ShiftRight
+            )
             {
                 Token operatorToken =
                     Current;
 
                 Advance();
 
-
                 ExpressionSyntax right =
-                    ParsePrimaryExpression();
-
+                    ParseAdditiveExpression();
 
                 left = new BinaryExpressionSyntax(
                     left,
@@ -457,6 +527,34 @@ namespace NESOOP.Compiler
                 );
             }
 
+            return left;
+        }
+
+
+        private ExpressionSyntax ParseAdditiveExpression()
+        {
+            ExpressionSyntax left =
+                ParsePrimaryExpression();
+
+            while (
+                Current.Kind == TokenKind.Plus ||
+                Current.Kind == TokenKind.Minus
+            )
+            {
+                Token operatorToken =
+                    Current;
+
+                Advance();
+
+                ExpressionSyntax right =
+                    ParsePrimaryExpression();
+
+                left = new BinaryExpressionSyntax(
+                    left,
+                    operatorToken,
+                    right
+                );
+            }
 
             return left;
         }
@@ -464,6 +562,21 @@ namespace NESOOP.Compiler
 
         private ExpressionSyntax ParsePrimaryExpression()
         {
+            // ---------------------------------------------------------
+            // Parenthesized expression
+            // ---------------------------------------------------------
+
+            if (Current.Kind == TokenKind.LeftParen)
+            {
+                Advance();
+
+                ExpressionSyntax expression =
+                    ParseExpression();
+
+                Expect(TokenKind.RightParen);
+
+                return expression;
+            }
             // ---------------------------------------------------------
             // Number
             // ---------------------------------------------------------
