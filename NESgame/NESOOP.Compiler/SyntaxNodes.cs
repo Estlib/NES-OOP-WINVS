@@ -82,6 +82,36 @@ namespace NESOOP.Compiler
         BlockSyntax ThenBlock,
         BlockSyntax? ElseBlock
     ) : StatementSyntax;
+    public sealed record WhileStatementSyntax(
+    ExpressionSyntax Condition,
+    BlockSyntax Body,
+    BlockSyntax? ElseBlock
+) : StatementSyntax;
+
+
+    public sealed record DoWhileStatementSyntax(
+        BlockSyntax Body,
+        ExpressionSyntax Condition
+    ) : StatementSyntax;
+
+
+    public sealed record ForStatementSyntax(
+        StatementSyntax? Initializer,
+        ExpressionSyntax? Condition,
+        StatementSyntax? Iterator,
+        BlockSyntax Body,
+        BlockSyntax? ElseBlock
+    ) : StatementSyntax;
+
+
+    public sealed record BreakStatementSyntax(
+        Token Token
+    ) : StatementSyntax;
+
+
+    public sealed record ContinueStatementSyntax(
+        Token Token
+    ) : StatementSyntax;
 
 
     // =========================================================

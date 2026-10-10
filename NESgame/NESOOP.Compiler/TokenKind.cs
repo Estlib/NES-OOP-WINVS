@@ -15,6 +15,11 @@ namespace NESOOP.Compiler
         False,
         If,
         Else,
+        While,
+        Do,
+        For,
+        Break,
+        Continue,
 
         //datatypes
         Byte,

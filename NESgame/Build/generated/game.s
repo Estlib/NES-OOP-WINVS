@@ -7,9 +7,9 @@
 
 __nesoop_expr_temp: .res 1
 Palette_AddOne_param_value: .res 1
-Game_Start_local_0_a: .res 1
-Game_Start_local_1_b: .res 1
-Game_Start_local_2_value: .res 1
+Game_Start_local_0_i: .res 1
+Game_Start_local_1_j: .res 1
+Game_Start_local_2_k: .res 1
 
 .segment "CODE"
 
@@ -25,80 +25,240 @@ Game_Start_local_2_value: .res 1
 ; ----------------------------------------------------------
 .proc Game_Start
 
-    ; Byte a
-    lda #$3C
-    sta Game_Start_local_0_a
+    ; Byte i
+    lda #$00
+    sta Game_Start_local_0_i
 
-    ; Byte b
-    lda #$0F
-    sta Game_Start_local_1_b
-
-    ; Byte value
-    lda Game_Start_local_0_a
+__nesoop_while_condition_0:
+    lda Game_Start_local_0_i
     pha
-    lda Game_Start_local_1_b
+    lda #$03
     sta __nesoop_expr_temp
     pla
-    and __nesoop_expr_temp
-    pha
+    cmp __nesoop_expr_temp
+    bcc __nesoop_compare_true_4
+__nesoop_compare_false_5:
+    lda #$00
+    jmp __nesoop_compare_end_6
+__nesoop_compare_true_4:
     lda #$01
-    tax
-    pla
-    cpx #$00
-    beq __nesoop_shift_end_1
-__nesoop_shift_loop_0:
-    asl a
-    dex
-    bne __nesoop_shift_loop_0
-__nesoop_shift_end_1:
-    sta Game_Start_local_2_value
-
-    lda Game_Start_local_2_value
+__nesoop_compare_end_6:
+    cmp #$00
+    bne __nesoop_while_body_1
+    jmp __nesoop_while_else_2
+__nesoop_while_body_1:
+    lda Game_Start_local_0_i
     pha
     lda #$02
     sta __nesoop_expr_temp
     pla
-    sec
-    sbc __nesoop_expr_temp
-    sta Game_Start_local_2_value
+    clc
+    adc __nesoop_expr_temp
+    sta NESRT_Screen_SetTile_x
+    lda #$04
+    sta NESRT_Screen_SetTile_y
+    lda #$01
+    sta NESRT_Screen_SetTile_tile
+    jsr NESRT_Screen_SetTile
 
-    ; if condition
-    lda Game_Start_local_2_value
+    lda Game_Start_local_0_i
     pha
-    lda #$16
+    lda #$01
+    sta __nesoop_expr_temp
+    pla
+    clc
+    adc __nesoop_expr_temp
+    sta Game_Start_local_0_i
+
+    jmp __nesoop_while_condition_0
+__nesoop_while_else_2:
+    lda #$05
+    sta NESRT_Screen_SetTile_x
+    lda #$04
+    sta NESRT_Screen_SetTile_y
+    lda #$01
+    sta NESRT_Screen_SetTile_tile
+    jsr NESRT_Screen_SetTile
+
+__nesoop_while_end_3:
+
+__nesoop_do_body_7:
+    lda #$02
+    sta NESRT_Screen_SetTile_x
+    lda #$06
+    sta NESRT_Screen_SetTile_y
+    lda #$01
+    sta NESRT_Screen_SetTile_tile
+    jsr NESRT_Screen_SetTile
+
+__nesoop_do_condition_8:
+    lda #$00
+    cmp #$00
+    beq __nesoop_do_end_9
+    jmp __nesoop_do_body_7
+__nesoop_do_end_9:
+
+    ; Byte j
+    lda #$00
+    sta Game_Start_local_1_j
+
+__nesoop_for_condition_10:
+    lda Game_Start_local_1_j
+    pha
+    lda #$05
     sta __nesoop_expr_temp
     pla
     cmp __nesoop_expr_temp
-    beq __nesoop_compare_true_5
-__nesoop_compare_false_6:
+    bcc __nesoop_compare_true_15
+__nesoop_compare_false_16:
     lda #$00
-    jmp __nesoop_compare_end_7
-__nesoop_compare_true_5:
+    jmp __nesoop_compare_end_17
+__nesoop_compare_true_15:
     lda #$01
-__nesoop_compare_end_7:
+__nesoop_compare_end_17:
     cmp #$00
-    bne __nesoop_if_then_2
-    jmp __nesoop_if_else_3
-__nesoop_if_then_2:
+    bne __nesoop_for_body_11
+    jmp __nesoop_for_else_13
+__nesoop_for_body_11:
+    ; if condition
+    lda Game_Start_local_1_j
+    pha
+    lda #$01
+    sta __nesoop_expr_temp
+    pla
+    cmp __nesoop_expr_temp
+    beq __nesoop_compare_true_21
+__nesoop_compare_false_22:
+    lda #$00
+    jmp __nesoop_compare_end_23
+__nesoop_compare_true_21:
+    lda #$01
+__nesoop_compare_end_23:
+    cmp #$00
+    bne __nesoop_if_then_18
+    jmp __nesoop_if_else_19
+__nesoop_if_then_18:
+    jmp __nesoop_for_iterator_12
+    jmp __nesoop_if_end_20
+__nesoop_if_else_19:
+__nesoop_if_end_20:
+
+    ; if condition
+    lda Game_Start_local_1_j
+    pha
+    lda #$03
+    sta __nesoop_expr_temp
+    pla
+    cmp __nesoop_expr_temp
+    beq __nesoop_compare_true_27
+__nesoop_compare_false_28:
+    lda #$00
+    jmp __nesoop_compare_end_29
+__nesoop_compare_true_27:
+    lda #$01
+__nesoop_compare_end_29:
+    cmp #$00
+    bne __nesoop_if_then_24
+    jmp __nesoop_if_else_25
+__nesoop_if_then_24:
+    jmp __nesoop_for_end_14
+    jmp __nesoop_if_end_26
+__nesoop_if_else_25:
+__nesoop_if_end_26:
+
+    lda Game_Start_local_1_j
+    pha
+    lda #$02
+    sta __nesoop_expr_temp
+    pla
+    clc
+    adc __nesoop_expr_temp
+    sta NESRT_Screen_SetTile_x
+    lda #$08
+    sta NESRT_Screen_SetTile_y
+    lda #$01
+    sta NESRT_Screen_SetTile_tile
+    jsr NESRT_Screen_SetTile
+
+__nesoop_for_iterator_12:
+    lda Game_Start_local_1_j
+    pha
+    lda #$01
+    sta __nesoop_expr_temp
+    pla
+    clc
+    adc __nesoop_expr_temp
+    sta Game_Start_local_1_j
+
+    jmp __nesoop_for_condition_10
+__nesoop_for_else_13:
+    lda #$0A
+    sta NESRT_Screen_SetTile_x
+    lda #$08
+    sta NESRT_Screen_SetTile_y
+    lda #$01
+    sta NESRT_Screen_SetTile_tile
+    jsr NESRT_Screen_SetTile
+
+__nesoop_for_end_14:
+
+    ; Byte k
+    lda #$00
+    sta Game_Start_local_2_k
+
+__nesoop_for_condition_30:
+    lda Game_Start_local_2_k
+    pha
+    lda #$02
+    sta __nesoop_expr_temp
+    pla
+    cmp __nesoop_expr_temp
+    bcc __nesoop_compare_true_35
+__nesoop_compare_false_36:
+    lda #$00
+    jmp __nesoop_compare_end_37
+__nesoop_compare_true_35:
+    lda #$01
+__nesoop_compare_end_37:
+    cmp #$00
+    bne __nesoop_for_body_31
+    jmp __nesoop_for_else_33
+__nesoop_for_body_31:
+    lda Game_Start_local_2_k
+    pha
+    lda #$02
+    sta __nesoop_expr_temp
+    pla
+    clc
+    adc __nesoop_expr_temp
+    sta NESRT_Screen_SetTile_x
+    lda #$0A
+    sta NESRT_Screen_SetTile_y
+    lda #$01
+    sta NESRT_Screen_SetTile_tile
+    jsr NESRT_Screen_SetTile
+
+__nesoop_for_iterator_32:
+    lda Game_Start_local_2_k
+    pha
+    lda #$01
+    sta __nesoop_expr_temp
+    pla
+    clc
+    adc __nesoop_expr_temp
+    sta Game_Start_local_2_k
+
+    jmp __nesoop_for_condition_30
+__nesoop_for_else_33:
     lda #$04
     sta NESRT_Screen_SetTile_x
-    lda #$07
+    lda #$0A
     sta NESRT_Screen_SetTile_y
     lda #$01
     sta NESRT_Screen_SetTile_tile
     jsr NESRT_Screen_SetTile
 
-    jmp __nesoop_if_end_4
-__nesoop_if_else_3:
-    lda #$08
-    sta NESRT_Screen_SetTile_x
-    lda #$07
-    sta NESRT_Screen_SetTile_y
-    lda #$01
-    sta NESRT_Screen_SetTile_tile
-    jsr NESRT_Screen_SetTile
-
-__nesoop_if_end_4:
+__nesoop_for_end_34:
 
     rts
 

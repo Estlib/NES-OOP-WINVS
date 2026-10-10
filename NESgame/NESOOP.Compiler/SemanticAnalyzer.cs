@@ -252,7 +252,8 @@ namespace NESOOP.Compiler
                     method,
                     variables,
                     methods,
-                    ref localCounter
+                    ref localCounter,
+                    0
                 );
 
 
@@ -289,7 +290,8 @@ namespace NESOOP.Compiler
             MethodSymbol method,
             Dictionary<string, VariableSymbol> variables,
             Dictionary<string, MethodSymbol> methods,
-            ref int localCounter
+            ref int localCounter,
+            int loopDepth
         )
         {
             List<SemanticStatement> output =
@@ -547,7 +549,8 @@ namespace NESOOP.Compiler
                             method,
                             thenVariables,
                             methods,
-                            ref localCounter
+                            ref localCounter,
+                            loopDepth
                         );
 
 
@@ -559,7 +562,8 @@ namespace NESOOP.Compiler
                                 method,
                                 elseVariables,
                                 methods,
-                                ref localCounter
+                                ref localCounter,
+                                loopDepth
                             );
 
 
@@ -575,7 +579,349 @@ namespace NESOOP.Compiler
                     continue;
                 }
 
+                // =====================================================
+                // break
+                // =====================================================
 
+                if (
+                    statement
+                    is BreakStatementSyntax
+                )
+                {
+                    if (loopDepth <= 0)
+                    {
+                        throw new Exception(
+                            "Semantic error: 'break' can only be used inside a loop."
+                        );
+                    }
+
+
+                    output.Add(
+                        new SemanticBreakStatement()
+                    );
+
+                    continue;
+                }
+
+
+                // =====================================================
+                // continue
+                // =====================================================
+
+                if (
+                    statement
+                    is ContinueStatementSyntax
+                )
+                {
+                    if (loopDepth <= 0)
+                    {
+                        throw new Exception(
+                            "Semantic error: 'continue' can only be used inside a loop."
+                        );
+                    }
+
+
+                    output.Add(
+                        new SemanticContinueStatement()
+                    );
+
+                    continue;
+                }
+                // =====================================================
+                // while / while-else
+                // =====================================================
+
+                if (
+                    statement
+                    is WhileStatementSyntax whileStatement
+                )
+                {
+                    SemanticValue condition =
+                        ResolveValue(
+                            whileStatement.Condition,
+                            method.ClassName,
+                            variables,
+                            methods
+                        );
+
+
+                    if (
+                        GetValueType(condition)
+                        != SemanticType.Bool
+                    )
+                    {
+                        throw new Exception(
+                            "Semantic error: while condition must be bool."
+                        );
+                    }
+
+
+                    Dictionary<string, VariableSymbol> bodyVariables =
+                        new(variables);
+
+
+                    List<SemanticStatement> bodyStatements =
+                        AnalyzeBlock(
+                            whileStatement.Body,
+                            method,
+                            bodyVariables,
+                            methods,
+                            ref localCounter,
+                            loopDepth + 1
+                        );
+
+
+                    IReadOnlyList<SemanticStatement> elseStatements =
+                        Array.Empty<SemanticStatement>();
+
+
+                    if (whileStatement.ElseBlock != null)
+                    {
+                        Dictionary<string, VariableSymbol> elseVariables =
+                            new(variables);
+
+
+                        elseStatements =
+                            AnalyzeBlock(
+                                whileStatement.ElseBlock,
+                                method,
+                                elseVariables,
+                                methods,
+                                ref localCounter,
+
+                                // The loop has already completed here.
+                                // break/continue refer only to an enclosing loop.
+                                loopDepth
+                            );
+                    }
+
+
+                    output.Add(
+                        new SemanticWhileStatement(
+                            condition,
+                            bodyStatements,
+                            elseStatements
+                        )
+                    );
+
+
+                    continue;
+                }
+                // =====================================================
+                // do / while
+                // =====================================================
+
+                if (
+                    statement
+                    is DoWhileStatementSyntax doWhileStatement
+                )
+                {
+                    Dictionary<string, VariableSymbol> bodyVariables =
+                        new(variables);
+
+
+                    List<SemanticStatement> bodyStatements =
+                        AnalyzeBlock(
+                            doWhileStatement.Body,
+                            method,
+                            bodyVariables,
+                            methods,
+                            ref localCounter,
+                            loopDepth + 1
+                        );
+
+
+                    SemanticValue condition =
+                        ResolveValue(
+                            doWhileStatement.Condition,
+                            method.ClassName,
+                            variables,
+                            methods
+                        );
+
+
+                    if (
+                        GetValueType(condition)
+                        != SemanticType.Bool
+                    )
+                    {
+                        throw new Exception(
+                            "Semantic error: do/while condition must be bool."
+                        );
+                    }
+
+
+                    output.Add(
+                        new SemanticDoWhileStatement(
+                            bodyStatements,
+                            condition
+                        )
+                    );
+
+
+                    continue;
+                }
+                // =====================================================
+                // for / for-else
+                // =====================================================
+
+                if (
+                    statement
+                    is ForStatementSyntax forStatement
+                )
+                {
+                    // Header variables belong to the for statement,
+                    // not to the surrounding block.
+                    Dictionary<string, VariableSymbol> forVariables =
+                        new(variables);
+
+
+                    // -------------------------------------------------
+                    // Initializer
+                    // -------------------------------------------------
+
+                    IReadOnlyList<SemanticStatement> initializerStatements =
+                        Array.Empty<SemanticStatement>();
+
+
+                    if (forStatement.Initializer != null)
+                    {
+                        initializerStatements =
+                            AnalyzeBlock(
+                                new BlockSyntax(
+                                    new[]
+                                    {
+                        forStatement.Initializer
+                                    }
+                                ),
+                                method,
+                                forVariables,
+                                methods,
+                                ref localCounter,
+                                loopDepth
+                            );
+                    }
+
+
+                    // -------------------------------------------------
+                    // Condition
+                    //
+                    // Missing condition = true
+                    // -------------------------------------------------
+
+                    SemanticValue condition =
+                        forStatement.Condition == null
+
+                            ? new SemanticBoolLiteral(
+                                true
+                            )
+
+                            : ResolveValue(
+                                forStatement.Condition,
+                                method.ClassName,
+                                forVariables,
+                                methods
+                            );
+
+
+                    if (
+                        GetValueType(condition)
+                        != SemanticType.Bool
+                    )
+                    {
+                        throw new Exception(
+                            "Semantic error: for condition must be bool."
+                        );
+                    }
+
+
+                    // -------------------------------------------------
+                    // Body
+                    // -------------------------------------------------
+
+                    Dictionary<string, VariableSymbol> bodyVariables =
+                        new(forVariables);
+
+
+                    IReadOnlyList<SemanticStatement> bodyStatements =
+                        AnalyzeBlock(
+                            forStatement.Body,
+                            method,
+                            bodyVariables,
+                            methods,
+                            ref localCounter,
+                            loopDepth + 1
+                        );
+
+
+                    // -------------------------------------------------
+                    // Iterator
+                    // -------------------------------------------------
+
+                    IReadOnlyList<SemanticStatement> iteratorStatements =
+                        Array.Empty<SemanticStatement>();
+
+
+                    if (forStatement.Iterator != null)
+                    {
+                        iteratorStatements =
+                            AnalyzeBlock(
+                                new BlockSyntax(
+                                    new[]
+                                    {
+                        forStatement.Iterator
+                                    }
+                                ),
+                                method,
+                                forVariables,
+                                methods,
+                                ref localCounter,
+                                loopDepth + 1
+                            );
+                    }
+
+
+                    // -------------------------------------------------
+                    // Else
+                    //
+                    // Runs only after natural completion.
+                    // -------------------------------------------------
+
+                    IReadOnlyList<SemanticStatement> elseStatements =
+                        Array.Empty<SemanticStatement>();
+
+
+                    if (forStatement.ElseBlock != null)
+                    {
+                        Dictionary<string, VariableSymbol> elseVariables =
+                            new(forVariables);
+
+
+                        elseStatements =
+                            AnalyzeBlock(
+                                forStatement.ElseBlock,
+                                method,
+                                elseVariables,
+                                methods,
+                                ref localCounter,
+                                loopDepth
+                            );
+                    }
+
+
+                    output.Add(
+                        new SemanticForStatement(
+                            initializerStatements,
+                            condition,
+                            iteratorStatements,
+                            bodyStatements,
+                            elseStatements
+                        )
+                    );
+
+
+                    continue;
+                }
                 // =====================================================
                 // assignment
                 // =====================================================

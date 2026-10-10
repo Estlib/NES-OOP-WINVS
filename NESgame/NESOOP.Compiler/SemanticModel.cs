@@ -108,7 +108,34 @@ namespace NESOOP.Compiler
         IReadOnlyList<SemanticStatement> ThenStatements,
         IReadOnlyList<SemanticStatement> ElseStatements
     ) : SemanticStatement;
+    public sealed record SemanticWhileStatement(
+    SemanticValue Condition,
+    IReadOnlyList<SemanticStatement> BodyStatements,
+    IReadOnlyList<SemanticStatement> ElseStatements
+) : SemanticStatement;
 
+
+    public sealed record SemanticDoWhileStatement(
+        IReadOnlyList<SemanticStatement> BodyStatements,
+        SemanticValue Condition
+    ) : SemanticStatement;
+
+
+    public sealed record SemanticForStatement(
+        IReadOnlyList<SemanticStatement> InitializerStatements,
+        SemanticValue Condition,
+        IReadOnlyList<SemanticStatement> IteratorStatements,
+        IReadOnlyList<SemanticStatement> BodyStatements,
+        IReadOnlyList<SemanticStatement> ElseStatements
+    ) : SemanticStatement;
+
+
+    public sealed record SemanticBreakStatement
+        : SemanticStatement;
+
+
+    public sealed record SemanticContinueStatement
+        : SemanticStatement;
 
     // =========================================================
     // Values

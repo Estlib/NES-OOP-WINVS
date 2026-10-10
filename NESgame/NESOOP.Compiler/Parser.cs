@@ -203,6 +203,36 @@ namespace NESOOP.Compiler
             }
 
 
+            if (Current.Kind == TokenKind.While)
+            {
+                return ParseWhile();
+            }
+
+
+            if (Current.Kind == TokenKind.Do)
+            {
+                return ParseDoWhile();
+            }
+
+
+            if (Current.Kind == TokenKind.For)
+            {
+                return ParseFor();
+            }
+
+
+            if (Current.Kind == TokenKind.Break)
+            {
+                return ParseBreak();
+            }
+
+
+            if (Current.Kind == TokenKind.Continue)
+            {
+                return ParseContinue();
+            }
+
+
             return ParseIdentifierStatement();
         }
 
@@ -280,6 +310,232 @@ namespace NESOOP.Compiler
             );
         }
 
+        private WhileStatementSyntax ParseWhile()
+        {
+            Expect(TokenKind.While);
+
+            Expect(TokenKind.LeftParen);
+
+            ExpressionSyntax condition =
+                ParseExpression();
+
+            Expect(TokenKind.RightParen);
+
+
+            BlockSyntax body =
+                ParseBlock();
+
+
+            BlockSyntax? elseBlock =
+                null;
+
+
+            if (Current.Kind == TokenKind.Else)
+            {
+                Advance();
+
+                elseBlock =
+                    ParseBlock();
+            }
+
+
+            return new WhileStatementSyntax(
+                condition,
+                body,
+                elseBlock
+            );
+        }
+
+        private DoWhileStatementSyntax ParseDoWhile()
+        {
+            Expect(TokenKind.Do);
+
+
+            BlockSyntax body =
+                ParseBlock();
+
+
+            Expect(TokenKind.While);
+
+            Expect(TokenKind.LeftParen);
+
+
+            ExpressionSyntax condition =
+                ParseExpression();
+
+
+            Expect(TokenKind.RightParen);
+
+            Expect(TokenKind.Semicolon);
+
+
+            return new DoWhileStatementSyntax(
+                body,
+                condition
+            );
+        }
+
+        private BreakStatementSyntax ParseBreak()
+        {
+            Token token =
+                Expect(TokenKind.Break);
+
+            Expect(TokenKind.Semicolon);
+
+
+            return new BreakStatementSyntax(
+                token
+            );
+        }
+
+
+        private ContinueStatementSyntax ParseContinue()
+        {
+            Token token =
+                Expect(TokenKind.Continue);
+
+            Expect(TokenKind.Semicolon);
+
+
+            return new ContinueStatementSyntax(
+                token
+            );
+        }
+
+        private ForStatementSyntax ParseFor()
+        {
+            Expect(TokenKind.For);
+
+            Expect(TokenKind.LeftParen);
+
+
+            // =========================================================
+            // Initializer
+            //
+            // for (byte i = 0; ...
+            // for (i = 0; ...
+            // for (; ...
+            // =========================================================
+
+            StatementSyntax? initializer =
+                null;
+
+
+            if (Current.Kind == TokenKind.Semicolon)
+            {
+                Advance();
+            }
+            else if (
+                Current.Kind == TokenKind.Byte ||
+                Current.Kind == TokenKind.Bool
+            )
+            {
+                // ParseVariableDeclaration consumes its semicolon.
+                initializer =
+                    ParseVariableDeclaration();
+            }
+            else if (Current.Kind == TokenKind.Identifier)
+            {
+                // Also consumes its semicolon.
+                initializer =
+                    ParseIdentifierStatement();
+            }
+            else
+            {
+                throw new Exception(
+                    $"Expected for-loop initializer, but found " +
+                    $"'{Current.Text}' at line " +
+                    $"{Current.Line}, column {Current.Column}."
+                );
+            }
+
+
+            // =========================================================
+            // Condition
+            //
+            // Missing condition means true:
+            //
+            // for (;;)
+            // =========================================================
+
+            ExpressionSyntax? condition =
+                null;
+
+
+            if (Current.Kind != TokenKind.Semicolon)
+            {
+                condition =
+                    ParseExpression();
+            }
+
+
+            Expect(TokenKind.Semicolon);
+
+
+            // =========================================================
+            // Iterator
+            // =========================================================
+
+            StatementSyntax? iterator =
+                null;
+
+
+            if (Current.Kind != TokenKind.RightParen)
+            {
+                if (Current.Kind != TokenKind.Identifier)
+                {
+                    throw new Exception(
+                        $"Expected for-loop iterator, but found " +
+                        $"'{Current.Text}' at line " +
+                        $"{Current.Line}, column {Current.Column}."
+                    );
+                }
+
+
+                iterator =
+                    ParseIdentifierStatement(
+                        expectSemicolon: false
+                    );
+            }
+
+
+            Expect(TokenKind.RightParen);
+
+
+            // =========================================================
+            // Body
+            // =========================================================
+
+            BlockSyntax body =
+                ParseBlock();
+
+
+            // =========================================================
+            // Python-style loop else
+            // =========================================================
+
+            BlockSyntax? elseBlock =
+                null;
+
+
+            if (Current.Kind == TokenKind.Else)
+            {
+                Advance();
+
+                elseBlock =
+                    ParseBlock();
+            }
+
+
+            return new ForStatementSyntax(
+                initializer,
+                condition,
+                iterator,
+                body,
+                elseBlock
+            );
+        }
+
 
         private ReturnStatementSyntax ParseReturn()
         {
@@ -313,7 +569,7 @@ namespace NESOOP.Compiler
         }
 
 
-        private StatementSyntax ParseIdentifierStatement()
+        private StatementSyntax ParseIdentifierStatement(bool expectSemicolon = true)
         {
             MemberAccessExpressionSyntax target =
                 ParseMemberAccess();
@@ -331,7 +587,10 @@ namespace NESOOP.Compiler
                 IReadOnlyList<ExpressionSyntax> arguments =
                     ParseArguments();
 
-                Expect(TokenKind.Semicolon);
+                if (expectSemicolon)
+                {
+                    Expect(TokenKind.Semicolon);
+                }
 
 
                 return new MethodCallStatementSyntax(
@@ -350,7 +609,10 @@ namespace NESOOP.Compiler
             ExpressionSyntax value =
                 ParseExpression();
 
-            Expect(TokenKind.Semicolon);
+            if (expectSemicolon)
+            {
+                Expect(TokenKind.Semicolon);
+            }
 
 
             return new AssignmentStatementSyntax(

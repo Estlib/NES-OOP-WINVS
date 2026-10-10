@@ -11,6 +11,14 @@ namespace NESOOP.Compiler
             "__nesoop_expr_temp";
 
         private int _labelCounter = 0;
+        private sealed record LoopContext(
+            string BreakLabel,
+            string ContinueLabel
+        );
+
+
+        private readonly Stack<LoopContext> _loopStack =
+            new();
 
 
         public string Generate(
@@ -18,6 +26,7 @@ namespace NESOOP.Compiler
         )
         {
             _labelCounter = 0;
+            _loopStack.Clear();
 
             StringBuilder output =
                 new();
@@ -215,6 +224,99 @@ namespace NESOOP.Compiler
                         SemanticStatement nested
                         in EnumerateStatements(
                             ifStatement.ElseStatements
+                        )
+                    )
+                    {
+                        yield return nested;
+                    }
+                }
+                if (
+                statement
+                is SemanticWhileStatement whileStatement
+            )
+                {
+                    foreach (
+                        SemanticStatement nested
+                        in EnumerateStatements(
+                            whileStatement.BodyStatements
+                        )
+                    )
+                    {
+                        yield return nested;
+                    }
+
+
+                    foreach (
+                        SemanticStatement nested
+                        in EnumerateStatements(
+                            whileStatement.ElseStatements
+                        )
+                    )
+                    {
+                        yield return nested;
+                    }
+                }
+
+
+                if (
+                    statement
+                    is SemanticDoWhileStatement doWhileStatement
+                )
+                {
+                    foreach (
+                        SemanticStatement nested
+                        in EnumerateStatements(
+                            doWhileStatement.BodyStatements
+                        )
+                    )
+                    {
+                        yield return nested;
+                    }
+                }
+
+
+                if (
+                    statement
+                    is SemanticForStatement forStatement
+                )
+                {
+                    foreach (
+                        SemanticStatement nested
+                        in EnumerateStatements(
+                            forStatement.InitializerStatements
+                        )
+                    )
+                    {
+                        yield return nested;
+                    }
+
+
+                    foreach (
+                        SemanticStatement nested
+                        in EnumerateStatements(
+                            forStatement.BodyStatements
+                        )
+                    )
+                    {
+                        yield return nested;
+                    }
+
+
+                    foreach (
+                        SemanticStatement nested
+                        in EnumerateStatements(
+                            forStatement.IteratorStatements
+                        )
+                    )
+                    {
+                        yield return nested;
+                    }
+
+
+                    foreach (
+                        SemanticStatement nested
+                        in EnumerateStatements(
+                            forStatement.ElseStatements
                         )
                     )
                     {
@@ -445,12 +547,114 @@ namespace NESOOP.Compiler
                 return;
             }
 
+            // =========================================================
+            // while / while-else
+            // =========================================================
+
+            if (
+                statement
+                is SemanticWhileStatement whileStatement
+            )
+            {
+                GenerateWhile(
+                    output,
+                    whileStatement
+                );
+
+                return;
+            }
+
+
+            // =========================================================
+            // do / while
+            // =========================================================
+
+            if (
+                statement
+                is SemanticDoWhileStatement doWhileStatement
+            )
+            {
+                GenerateDoWhile(
+                    output,
+                    doWhileStatement
+                );
+
+                return;
+            }
+
+
+            // =========================================================
+            // for / for-else
+            // =========================================================
+
+            if (
+                statement
+                is SemanticForStatement forStatement
+            )
+            {
+                GenerateFor(
+                    output,
+                    forStatement
+                );
+
+                return;
+            }
+
+
+            // =========================================================
+            // break
+            // =========================================================
+
+            if (
+                statement
+                is SemanticBreakStatement
+            )
+            {
+                if (_loopStack.Count == 0)
+                {
+                    throw new Exception(
+                        "Internal compiler error: break outside loop."
+                    );
+                }
+
+                output.AppendLine(
+                    $"    jmp {_loopStack.Peek().BreakLabel}"
+                );
+
+                return;
+            }
+
+
+            // =========================================================
+            // continue
+            // =========================================================
+
+            if (
+                statement
+                is SemanticContinueStatement
+            )
+            {
+                if (_loopStack.Count == 0)
+                {
+                    throw new Exception(
+                        "Internal compiler error: continue outside loop."
+                    );
+                }
+
+                output.AppendLine(
+                    $"    jmp {_loopStack.Peek().ContinueLabel}"
+                );
+
+                return;
+            }
 
             throw new Exception(
                 "Internal compiler error: " +
                 $"unknown semantic statement " +
                 $"'{statement.GetType().Name}'."
             );
+
+
         }
 
 
@@ -564,6 +768,365 @@ namespace NESOOP.Compiler
 
             // ---------------------------------------------------------
             // END
+            // ---------------------------------------------------------
+
+            output.AppendLine(
+                $"{endLabel}:"
+            );
+
+            output.AppendLine();
+        }
+
+        private void GenerateWhile(
+            StringBuilder output,
+            SemanticWhileStatement statement
+        )
+        {
+            string conditionLabel =
+                NextLabel("while_condition");
+
+            string bodyLabel =
+                NextLabel("while_body");
+
+            string elseLabel =
+                NextLabel("while_else");
+
+            string endLabel =
+                NextLabel("while_end");
+
+
+            // ---------------------------------------------------------
+            // Condition
+            // ---------------------------------------------------------
+
+            output.AppendLine(
+                $"{conditionLabel}:"
+            );
+
+
+            GenerateLoadValue(
+                output,
+                statement.Condition
+            );
+
+
+            output.AppendLine(
+                "    cmp #$00"
+            );
+
+
+            // Short branch only reaches nearby body.
+            output.AppendLine(
+                $"    bne {bodyLabel}"
+            );
+
+            // Natural termination goes through else.
+            output.AppendLine(
+                $"    jmp {elseLabel}"
+            );
+
+
+            // ---------------------------------------------------------
+            // Body
+            // ---------------------------------------------------------
+
+            output.AppendLine(
+                $"{bodyLabel}:"
+            );
+
+
+            _loopStack.Push(
+                new LoopContext(
+                    endLabel,
+                    conditionLabel
+                )
+            );
+
+
+            foreach (
+                SemanticStatement nested
+                in statement.BodyStatements
+            )
+            {
+                GenerateStatement(
+                    output,
+                    nested
+                );
+            }
+
+
+            _loopStack.Pop();
+
+
+            output.AppendLine(
+                $"    jmp {conditionLabel}"
+            );
+
+
+            // ---------------------------------------------------------
+            // Else
+            // ---------------------------------------------------------
+
+            output.AppendLine(
+                $"{elseLabel}:"
+            );
+
+
+            foreach (
+                SemanticStatement nested
+                in statement.ElseStatements
+            )
+            {
+                GenerateStatement(
+                    output,
+                    nested
+                );
+            }
+
+
+            // ---------------------------------------------------------
+            // End
+            // ---------------------------------------------------------
+
+            output.AppendLine(
+                $"{endLabel}:"
+            );
+
+            output.AppendLine();
+        }
+        private void GenerateDoWhile(
+            StringBuilder output,
+            SemanticDoWhileStatement statement
+        )
+        {
+            string bodyLabel =
+                NextLabel("do_body");
+
+            string conditionLabel =
+                NextLabel("do_condition");
+
+            string endLabel =
+                NextLabel("do_end");
+
+
+            output.AppendLine(
+                $"{bodyLabel}:"
+            );
+
+
+            _loopStack.Push(
+                new LoopContext(
+                    endLabel,
+                    conditionLabel
+                )
+            );
+
+
+            foreach (
+                SemanticStatement nested
+                in statement.BodyStatements
+            )
+            {
+                GenerateStatement(
+                    output,
+                    nested
+                );
+            }
+
+
+            _loopStack.Pop();
+
+
+            // ---------------------------------------------------------
+            // Continue jumps here.
+            // ---------------------------------------------------------
+
+            output.AppendLine(
+                $"{conditionLabel}:"
+            );
+
+
+            GenerateLoadValue(
+                output,
+                statement.Condition
+            );
+
+
+            output.AppendLine(
+                "    cmp #$00"
+            );
+
+
+            // End is very close, so this branch is safely in range.
+            output.AppendLine(
+                $"    beq {endLabel}"
+            );
+
+
+            // Body may be far away, so use JMP.
+            output.AppendLine(
+                $"    jmp {bodyLabel}"
+            );
+
+
+            output.AppendLine(
+                $"{endLabel}:"
+            );
+
+            output.AppendLine();
+        }
+
+        private void GenerateFor(
+            StringBuilder output,
+            SemanticForStatement statement
+        )
+        {
+            string conditionLabel =
+                NextLabel("for_condition");
+
+            string bodyLabel =
+                NextLabel("for_body");
+
+            string iteratorLabel =
+                NextLabel("for_iterator");
+
+            string elseLabel =
+                NextLabel("for_else");
+
+            string endLabel =
+                NextLabel("for_end");
+
+
+            // ---------------------------------------------------------
+            // Initializer
+            // ---------------------------------------------------------
+
+            foreach (
+                SemanticStatement nested
+                in statement.InitializerStatements
+            )
+            {
+                GenerateStatement(
+                    output,
+                    nested
+                );
+            }
+
+
+            // ---------------------------------------------------------
+            // Condition
+            // ---------------------------------------------------------
+
+            output.AppendLine(
+                $"{conditionLabel}:"
+            );
+
+
+            GenerateLoadValue(
+                output,
+                statement.Condition
+            );
+
+
+            output.AppendLine(
+                "    cmp #$00"
+            );
+
+
+            output.AppendLine(
+                $"    bne {bodyLabel}"
+            );
+
+
+            // Natural completion invokes else.
+            output.AppendLine(
+                $"    jmp {elseLabel}"
+            );
+
+
+            // ---------------------------------------------------------
+            // Body
+            // ---------------------------------------------------------
+
+            output.AppendLine(
+                $"{bodyLabel}:"
+            );
+
+
+            // break    -> end
+            // continue -> iterator
+            _loopStack.Push(
+                new LoopContext(
+                    endLabel,
+                    iteratorLabel
+                )
+            );
+
+
+            foreach (
+                SemanticStatement nested
+                in statement.BodyStatements
+            )
+            {
+                GenerateStatement(
+                    output,
+                    nested
+                );
+            }
+
+
+            _loopStack.Pop();
+
+
+            // ---------------------------------------------------------
+            // Iterator
+            // ---------------------------------------------------------
+
+            output.AppendLine(
+                $"{iteratorLabel}:"
+            );
+
+
+            foreach (
+                SemanticStatement nested
+                in statement.IteratorStatements
+            )
+            {
+                GenerateStatement(
+                    output,
+                    nested
+                );
+            }
+
+
+            output.AppendLine(
+                $"    jmp {conditionLabel}"
+            );
+
+
+            // ---------------------------------------------------------
+            // Else
+            // ---------------------------------------------------------
+
+            output.AppendLine(
+                $"{elseLabel}:"
+            );
+
+
+            foreach (
+                SemanticStatement nested
+                in statement.ElseStatements
+            )
+            {
+                GenerateStatement(
+                    output,
+                    nested
+                );
+            }
+
+
+            // ---------------------------------------------------------
+            // End
             // ---------------------------------------------------------
 
             output.AppendLine(

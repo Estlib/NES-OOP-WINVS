@@ -457,6 +457,12 @@ namespace NESOOP.Compiler
                 "if" => TokenKind.If,
                 "else" => TokenKind.Else,
 
+                "while" => TokenKind.While,
+                "do" => TokenKind.Do,
+                "for" => TokenKind.For,
+                "break" => TokenKind.Break,
+                "continue" => TokenKind.Continue,
+
                 _ => TokenKind.Identifier
             };
 

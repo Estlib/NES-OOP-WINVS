@@ -9,7 +9,7 @@ screen.o:
     CODE              Offs=00007D  Size=000033  Align=00001  Fill=0000
     BSS               Offs=000000  Size=000005  Align=00001  Fill=0000
 game.o:
-    CODE              Offs=0000B0  Size=00008D  Align=00001  Fill=0000
+    CODE              Offs=0000B0  Size=0001A3  Align=00001  Fill=0000
     BSS               Offs=000005  Size=000005  Align=00001  Fill=0000
 
 
@@ -20,7 +20,7 @@ Name                   Start     End    Size  Align
 CHARS                 000000  001FFF  002000  00001
 HEADER                000000  00000F  000010  00001
 BSS                   000200  000209  00000A  00001
-CODE                  008000  00813C  00013D  00001
+CODE                  008000  008252  000253  00001
 VECTORS               00FFFA  00FFFF  000006  00001
 
 
