@@ -4,7 +4,9 @@ class Game
     {
         byte color = Palette.AddOne(0x2A);
 
-        Screen.BackgroundColor = color;
+        Screen.BackgroundColor = 0x2B;
+
+        Screen.SetTile(4, 7, 1);
     }
 }
 

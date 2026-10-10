@@ -6,6 +6,7 @@
   <Folder Name="/Game/" />
   <Folder Name="/Game/runtime/">
     <File Path="Game/runtime/main.s" />
+    <File Path="Game/runtime/screen.s" />
   </Folder>
   <Folder Name="/Game/src/">
     <File Path="Game/src/Main.nesoo" />

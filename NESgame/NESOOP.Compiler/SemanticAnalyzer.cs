@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 
 namespace NESOOP.Compiler
 {
@@ -456,7 +457,7 @@ namespace NESOOP.Compiler
                     if (
                         NesBuiltIns.TryResolveMember(
                             assignment.Target.Parts,
-                            out NesBuiltInDefinition? builtIn
+                            out NesBuiltInDefinition builtIn
                         )
                     )
                     {
@@ -697,6 +698,8 @@ namespace NESOOP.Compiler
             Dictionary<string, MethodSymbol> methods
         )
         {
+
+
             string targetClass;
             string targetMethod;
 
@@ -728,6 +731,67 @@ namespace NESOOP.Compiler
 
             string key =
                 $"{targetClass}.{targetMethod}";
+
+            // =============================================================
+            // NES built-in method
+            // =============================================================
+
+            if (
+                NesBuiltIns.TryResolveMethod(
+                    target.Parts,
+                    out NesBuiltInMethodDefinition builtIn
+                )
+            )
+            {
+                if (
+                    arguments.Count
+                    != builtIn.Parameters.Count
+                )
+                {
+                    throw new Exception(
+                        $"Semantic error: NES built-in method " +
+                        $"'{builtIn.TypeName}.{builtIn.MethodName}' expects " +
+                        $"{builtIn.Parameters.Count} argument(s), " +
+                        $"but {arguments.Count} were supplied."
+                    );
+                }
+
+
+                List<SemanticValue> builtInArguments =
+    new();
+
+
+                foreach (
+                    ExpressionSyntax argument
+                    in arguments
+                )
+                {
+                    builtInArguments.Add(
+                        ResolveValue(
+                            argument,
+                            currentClass,
+                            variables,
+                            methods
+                        )
+                    );
+                }
+
+
+                return new SemanticCall(
+                    builtIn.RuntimeLabel,
+
+                    builtIn.Parameters
+                        .Select(
+                            parameter =>
+                                parameter.StorageName
+                        )
+                        .ToList(),
+
+                    builtInArguments,
+
+                    builtIn.ReturnType
+                );
+            }
 
 
             if (

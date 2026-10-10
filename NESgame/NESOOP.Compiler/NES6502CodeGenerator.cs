@@ -94,6 +94,33 @@ namespace NESOOP.Compiler
             );
 
             output.AppendLine();
+            // =========================================================
+            // NES runtime imports
+            // =========================================================
+
+            foreach (
+                NesBuiltInMethodDefinition builtIn
+                in NesBuiltIns.AllMethods
+            )
+            {
+                output.AppendLine(
+                    $".import {builtIn.RuntimeLabel}"
+                );
+
+
+                foreach (
+                    NesBuiltInParameterDefinition parameter
+                    in builtIn.Parameters
+                )
+                {
+                    output.AppendLine(
+                        $".import {parameter.StorageName}"
+                    );
+                }
+            }
+
+
+            output.AppendLine();
 
 
             output.AppendLine(

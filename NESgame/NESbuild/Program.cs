@@ -2,6 +2,8 @@
 using System.Diagnostics;
 using System.IO;
 using NESOOP.Compiler;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace NESbuild
 {
@@ -83,8 +85,13 @@ namespace NESbuild
             string buildFolder = Path.Combine(root, "build");
             string generatedFolder = Path.Combine(buildFolder, "generated");
 
-            string runtimeSource = Path.Combine(runtimeFolder, "main.s");
             string oopSource = Path.Combine(sourceFolder, "Main.nesoo");
+
+            string runtimeObjectFolder =
+            Path.Combine(
+                buildFolder,
+                "runtime"
+            );
 
             string generatedSource = Path.Combine(
                 generatedFolder,
@@ -94,11 +101,6 @@ namespace NESbuild
             string configFile = Path.Combine(
                 configFolder,
                 "nes.cfg"
-            );
-
-            string runtimeObject = Path.Combine(
-                buildFolder,
-                "runtime.o"
             );
 
             string generatedObject = Path.Combine(
@@ -130,6 +132,7 @@ namespace NESbuild
 
             Directory.CreateDirectory(buildFolder);
             Directory.CreateDirectory(generatedFolder);
+            Directory.CreateDirectory(runtimeObjectFolder);
 
             Console.WriteLine("NES build");
             Console.WriteLine("---------");
@@ -156,24 +159,69 @@ namespace NESbuild
 
                 return 1;
             }
-            // ----------------------------------------------------------
-            // Assemble runtime
-            // ----------------------------------------------------------
+            Console.WriteLine("Assembling NES runtime...");
 
-            Console.WriteLine("Assembling runtime...");
 
-            int result = RunProcess(
-                "ca65",
-                runtimeSource,
-                "-g",
-                "-o",
-                runtimeObject
-            );
+            string[] runtimeSources =
+                Directory.GetFiles(
+                    runtimeFolder,
+                    "*.s",
+                    SearchOption.TopDirectoryOnly
+                );
 
-            if (result != 0)
+
+            List<string> runtimeObjects =
+                new();
+
+
+            foreach (
+                string runtimeSource
+                in runtimeSources.OrderBy(
+                    x => x
+                )
+            )
             {
-                Console.Error.WriteLine("Runtime assembly failed.");
-                return result;
+                string fileName =
+                    Path.GetFileNameWithoutExtension(
+                        runtimeSource
+                    );
+
+
+                string objectFile =
+                    Path.Combine(
+                        runtimeObjectFolder,
+                        fileName + ".o"
+                    );
+
+
+                Console.WriteLine(
+                    $"  {Path.GetFileName(runtimeSource)}"
+                );
+
+
+                int runtimeResult =
+                    RunProcess(
+                        "ca65",
+                        runtimeSource,
+                        "-g",
+                        "-o",
+                        objectFile
+                    );
+
+
+                if (runtimeResult != 0)
+                {
+                    Console.Error.WriteLine(
+                        $"Assembly failed: {runtimeSource}"
+                    );
+
+                    return runtimeResult;
+                }
+
+
+                runtimeObjects.Add(
+                    objectFile
+                );
             }
 
 
@@ -183,7 +231,7 @@ namespace NESbuild
 
             Console.WriteLine("Assembling generated code...");
 
-            result = RunProcess(
+            int generatedResult = RunProcess(
                 "ca65",
                 generatedSource,
                 "-g",
@@ -191,10 +239,10 @@ namespace NESbuild
                 generatedObject
             );
 
-            if (result != 0)
+            if (generatedResult != 0)
             {
                 Console.Error.WriteLine("Generated assembly failed.");
-                return result;
+                return generatedResult;
             }
 
 
@@ -204,24 +252,41 @@ namespace NESbuild
 
             Console.WriteLine("Linking...");
 
-            result = RunProcess(
-                "ld65",
-                "-C", configFile,
 
-                runtimeObject,
-                generatedObject,
+            List<string> linkerArguments = new(){"-C",configFile};
 
-                "-o", romFile,
-                "-m", mapFile,
-                "--dbgfile", debugFile
+
+            linkerArguments.AddRange(runtimeObjects);
+
+            linkerArguments.Add(generatedObject);
+
+            linkerArguments.AddRange(new[] 
+                {
+                    "-o",
+                    romFile,
+
+                    "-m",
+                    mapFile,
+
+                    "--dbgfile",
+                    debugFile
+                }
             );
 
-            if (result != 0)
+
+            int linkResult = RunProcess(
+                "ld65",
+                linkerArguments.ToArray()
+            );
+
+            if (linkResult != 0)
             {
                 Console.Error.WriteLine();
-                Console.Error.WriteLine("ld65 failed.");
+                Console.Error.WriteLine(
+                    "ld65 failed."
+                );
 
-                return result;
+                return linkResult;
             }
 
 

@@ -1,13 +1,16 @@
 Modules list:
 -------------
-runtime.o:
-    CODE              Offs=000000  Size=00006B  Align=00001  Fill=0000
+main.o:
+    CODE              Offs=000000  Size=00007D  Align=00001  Fill=0000
     HEADER            Offs=000000  Size=000010  Align=00001  Fill=0000
     VECTORS           Offs=000000  Size=000006  Align=00001  Fill=0000
     CHARS             Offs=000000  Size=002000  Align=00001  Fill=0000
+screen.o:
+    CODE              Offs=00007D  Size=000033  Align=00001  Fill=0000
+    BSS               Offs=000000  Size=000005  Align=00001  Fill=0000
 game.o:
-    CODE              Offs=00006B  Size=000030  Align=00001  Fill=0000
-    BSS               Offs=000000  Size=000003  Align=00001  Fill=0000
+    CODE              Offs=0000B0  Size=000041  Align=00001  Fill=0000
+    BSS               Offs=000005  Size=000003  Align=00001  Fill=0000
 
 
 Segment list:
@@ -16,23 +19,35 @@ Name                   Start     End    Size  Align
 ----------------------------------------------------
 CHARS                 000000  001FFF  002000  00001
 HEADER                000000  00000F  000010  00001
-BSS                   000200  000202  000003  00001
-CODE                  008000  00809A  00009B  00001
+BSS                   000200  000207  000008  00001
+CODE                  008000  0080F0  0000F1  00001
 VECTORS               00FFFA  00FFFF  000006  00001
 
 
 Exports list by name:
 ---------------------
-Game_Start                00806B RLA    
+Game_Start                0080B0 RLA    NESRT_Screen_SetTile      00807D RLA    
+NESRT_Screen_SetTile_tile 000202 RLA    NESRT_Screen_SetTile_x    000200 RLA    
+NESRT_Screen_SetTile_y    000201 RLA    
 
 
 Exports list by value:
 ----------------------
-Game_Start                00806B RLA    
+NESRT_Screen_SetTile_x    000200 RLA    NESRT_Screen_SetTile_y    000201 RLA    
+NESRT_Screen_SetTile_tile 000202 RLA    NESRT_Screen_SetTile      00807D RLA    
+Game_Start                0080B0 RLA    
 
 
 Imports list:
 -------------
 Game_Start (game.o):
-    runtime.o                 C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\Game\runtime\main.s:4
+    main.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\Game\runtime\main.s:4
+NESRT_Screen_SetTile (screen.o):
+    game.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\build\generated\game.s:13
+NESRT_Screen_SetTile_tile (screen.o):
+    game.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\build\generated\game.s:16
+NESRT_Screen_SetTile_x (screen.o):
+    game.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\build\generated\game.s:14
+NESRT_Screen_SetTile_y (screen.o):
+    game.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\build\generated\game.s:15
 

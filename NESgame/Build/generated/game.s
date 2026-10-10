@@ -10,6 +10,11 @@ Game_Start_local_color: .res 1
 
 .segment "CODE"
 
+.import NESRT_Screen_SetTile
+.import NESRT_Screen_SetTile_x
+.import NESRT_Screen_SetTile_y
+.import NESRT_Screen_SetTile_tile
+
 .export Game_Start
 
 ; Game.Start()
@@ -29,9 +34,17 @@ Game_Start_local_color: .res 1
     lda #$00
     sta $2006
 
-    lda Game_Start_local_color
+    lda #$2B
     and #$3F
     sta $2007
+
+    lda #$04
+    sta NESRT_Screen_SetTile_x
+    lda #$07
+    sta NESRT_Screen_SetTile_y
+    lda #$01
+    sta NESRT_Screen_SetTile_tile
+    jsr NESRT_Screen_SetTile
 
     rts
 
