@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Linq;
 
 namespace NESOOP.Compiler
@@ -15,15 +14,18 @@ namespace NESOOP.Compiler
             IReadOnlyList<SemanticParameter> Parameters
         );
 
+        private sealed record VariableSymbol(
+            string StorageName,
+            SemanticType Type
+        );
+
 
         public SemanticProgram Analyze(
             CompilationUnitSyntax program
         )
         {
             // =========================================================
-            // First pass:
-            //
-            // Discover every method and its signature.
+            // First pass: discover every method signature.
             // =========================================================
 
             Dictionary<string, MethodSymbol> methods =
@@ -54,19 +56,9 @@ namespace NESOOP.Compiler
 
 
                     SemanticType returnType =
-                        method.ReturnType switch
-                        {
-                            TypeSyntaxKind.Void =>
-                                SemanticType.Void,
-
-                            TypeSyntaxKind.Byte =>
-                                SemanticType.Byte,
-
-                            _ =>
-                                throw new Exception(
-                                    "Internal compiler error."
-                                )
-                        };
+                        ToSemanticType(
+                            method.ReturnType
+                        );
 
 
                     List<SemanticParameter> parameters =
@@ -95,13 +87,32 @@ namespace NESOOP.Compiler
                         }
 
 
+                        SemanticType parameterType =
+                            ToSemanticType(
+                                parameter.Type
+                            );
+
+
+                        if (parameterType == SemanticType.Void)
+                        {
+                            throw new Exception(
+                                $"Semantic error: parameter " +
+                                $"'{parameter.Name}' cannot have type void."
+                            );
+                        }
+
+
+                        string storageName =
+                            $"{classDeclaration.Name}_" +
+                            $"{method.Name}_" +
+                            $"param_{parameter.Name}";
+
+
                         parameters.Add(
                             new SemanticParameter(
                                 parameter.Name,
-
-                                $"{classDeclaration.Name}_" +
-                                $"{method.Name}_" +
-                                $"param_{parameter.Name}"
+                                storageName,
+                                parameterType
                             )
                         );
                     }
@@ -126,7 +137,7 @@ namespace NESOOP.Compiler
 
 
             // =========================================================
-            // Entry point
+            // Entry point.
             // =========================================================
 
             if (
@@ -167,9 +178,7 @@ namespace NESOOP.Compiler
 
 
             // =========================================================
-            // Second pass:
-            //
-            // Analyze method bodies.
+            // Second pass: analyze method bodies.
             // =========================================================
 
             List<SemanticMethod> output =
@@ -211,17 +220,11 @@ namespace NESOOP.Compiler
             Dictionary<string, MethodSymbol> methods
         )
         {
-            List<SemanticStatement> output =
+            Dictionary<string, VariableSymbol> variables =
                 new();
 
 
-            // Maps source names to actual RAM labels.
-            Dictionary<string, string> variables =
-                new();
-
-
-            // Parameters are variables visible throughout
-            // the method.
+            // Parameters are visible throughout the method.
             foreach (
                 SemanticParameter parameter
                 in method.Parameters
@@ -229,18 +232,77 @@ namespace NESOOP.Compiler
             {
                 variables.Add(
                     parameter.Name,
-                    parameter.StorageName
+
+                    new VariableSymbol(
+                        parameter.StorageName,
+                        parameter.Type
+                    )
                 );
             }
 
 
+            // Used to ensure locals in different nested blocks get
+            // different assembler labels even when source names repeat.
+            int localCounter = 0;
+
+
+            List<SemanticStatement> statements =
+                AnalyzeBlock(
+                    method.Syntax.Body,
+                    method,
+                    variables,
+                    methods,
+                    ref localCounter
+                );
+
+
+            if (
+                method.ReturnType != SemanticType.Void &&
+                !AlwaysReturns(statements)
+            )
+            {
+                throw new Exception(
+                    $"Semantic error: {method.ReturnType.ToString().ToLowerInvariant()} method " +
+                    $"'{method.ClassName}.{method.Syntax.Name}' " +
+                    $"must return a value on every path."
+                );
+            }
+
+
+            return new SemanticMethod(
+                method.ClassName,
+                method.Syntax.Name,
+                method.Label,
+                method.ReturnType,
+                method.Parameters,
+                statements
+            );
+        }
+
+
+        // =============================================================
+        // Blocks / statements
+        // =============================================================
+
+        private static List<SemanticStatement> AnalyzeBlock(
+            BlockSyntax block,
+            MethodSymbol method,
+            Dictionary<string, VariableSymbol> variables,
+            Dictionary<string, MethodSymbol> methods,
+            ref int localCounter
+        )
+        {
+            List<SemanticStatement> output =
+                new();
+
+
             foreach (
                 StatementSyntax statement
-                in method.Syntax.Body.Statements
+                in block.Statements
             )
             {
                 // =====================================================
-                // byte variable = expression;
+                // variable declaration
                 // =====================================================
 
                 if (
@@ -261,6 +323,21 @@ namespace NESOOP.Compiler
                     }
 
 
+                    SemanticType variableType =
+                        ToSemanticType(
+                            declaration.Type
+                        );
+
+
+                    if (variableType == SemanticType.Void)
+                    {
+                        throw new Exception(
+                            $"Semantic error: local variable " +
+                            $"'{declaration.Name}' cannot have type void."
+                        );
+                    }
+
+
                     SemanticValue initializer =
                         ResolveValue(
                             declaration.Initializer,
@@ -270,22 +347,44 @@ namespace NESOOP.Compiler
                         );
 
 
+                    SemanticType initializerType =
+                        GetValueType(
+                            initializer
+                        );
+
+
+                    if (initializerType != variableType)
+                    {
+                        throw new Exception(
+                            $"Semantic error: cannot initialize " +
+                            $"'{declaration.Name}' of type {variableType} " +
+                            $"with value of type {initializerType}."
+                        );
+                    }
+
+
                     string storageName =
                         $"{method.ClassName}_" +
                         $"{method.Syntax.Name}_" +
-                        $"local_{declaration.Name}";
+                        $"local_{localCounter++}_" +
+                        $"{declaration.Name}";
 
 
                     variables.Add(
                         declaration.Name,
-                        storageName
+
+                        new VariableSymbol(
+                            storageName,
+                            variableType
+                        )
                     );
 
 
                     output.Add(
-                        new SemanticByteDeclaration(
+                        new SemanticVariableDeclaration(
                             declaration.Name,
                             storageName,
+                            variableType,
                             initializer
                         )
                     );
@@ -296,7 +395,7 @@ namespace NESOOP.Compiler
 
 
                 // =====================================================
-                // Method call statement
+                // method-call statement
                 // =====================================================
 
                 if (
@@ -326,7 +425,7 @@ namespace NESOOP.Compiler
 
 
                 // =====================================================
-                // Return
+                // return
                 // =====================================================
 
                 if (
@@ -334,10 +433,7 @@ namespace NESOOP.Compiler
                     is ReturnStatementSyntax returnStatement
                 )
                 {
-                    if (
-                        method.ReturnType
-                        == SemanticType.Void
-                    )
+                    if (method.ReturnType == SemanticType.Void)
                     {
                         if (returnStatement.Value != null)
                         {
@@ -360,26 +456,44 @@ namespace NESOOP.Compiler
                     }
 
 
-                    // byte method
-
                     if (returnStatement.Value == null)
                     {
                         throw new Exception(
-                            $"Semantic error: byte method " +
+                            $"Semantic error: {method.ReturnType.ToString().ToLowerInvariant()} method " +
                             $"'{method.ClassName}.{method.Syntax.Name}' " +
                             $"must return a value."
                         );
                     }
 
 
+                    SemanticValue returnValue =
+                        ResolveValue(
+                            returnStatement.Value,
+                            method.ClassName,
+                            variables,
+                            methods
+                        );
+
+
+                    SemanticType returnValueType =
+                        GetValueType(
+                            returnValue
+                        );
+
+
+                    if (returnValueType != method.ReturnType)
+                    {
+                        throw new Exception(
+                            $"Semantic error: method " +
+                            $"'{method.ClassName}.{method.Syntax.Name}' " +
+                            $"returns {method.ReturnType}, but return expression is {returnValueType}."
+                        );
+                    }
+
+
                     output.Add(
                         new SemanticReturnStatement(
-                            ResolveValue(
-                                returnStatement.Value,
-                                method.ClassName,
-                                variables,
-                                methods
-                            )
+                            returnValue
                         )
                     );
 
@@ -389,7 +503,81 @@ namespace NESOOP.Compiler
 
 
                 // =====================================================
-                // Assignment
+                // if / else
+                // =====================================================
+
+                if (
+                    statement
+                    is IfStatementSyntax ifStatement
+                )
+                {
+                    SemanticValue condition =
+                        ResolveValue(
+                            ifStatement.Condition,
+                            method.ClassName,
+                            variables,
+                            methods
+                        );
+
+
+                    if (
+                        GetValueType(condition)
+                        != SemanticType.Bool
+                    )
+                    {
+                        throw new Exception(
+                            "Semantic error: if condition must be bool."
+                        );
+                    }
+
+
+                    // Each branch receives a copy of the current scope.
+                    // Variables declared inside a branch do not escape it.
+                    Dictionary<string, VariableSymbol> thenVariables =
+                        new(variables);
+
+
+                    Dictionary<string, VariableSymbol> elseVariables =
+                        new(variables);
+
+
+                    List<SemanticStatement> thenStatements =
+                        AnalyzeBlock(
+                            ifStatement.ThenBlock,
+                            method,
+                            thenVariables,
+                            methods,
+                            ref localCounter
+                        );
+
+
+                    List<SemanticStatement> elseStatements =
+                        ifStatement.ElseBlock == null
+                            ? new List<SemanticStatement>()
+                            : AnalyzeBlock(
+                                ifStatement.ElseBlock,
+                                method,
+                                elseVariables,
+                                methods,
+                                ref localCounter
+                            );
+
+
+                    output.Add(
+                        new SemanticIfStatement(
+                            condition,
+                            thenStatements,
+                            elseStatements
+                        )
+                    );
+
+
+                    continue;
+                }
+
+
+                // =====================================================
+                // assignment
                 // =====================================================
 
                 if (
@@ -413,7 +601,7 @@ namespace NESOOP.Compiler
                         if (
                             !variables.TryGetValue(
                                 variableName,
-                                out string? storageName
+                                out VariableSymbol? variable
                             )
                         )
                         {
@@ -424,16 +612,36 @@ namespace NESOOP.Compiler
                         }
 
 
+                        SemanticValue value =
+                            ResolveValue(
+                                assignment.Value,
+                                method.ClassName,
+                                variables,
+                                methods
+                            );
+
+
+                        SemanticType valueType =
+                            GetValueType(
+                                value
+                            );
+
+
+                        if (valueType != variable.Type)
+                        {
+                            throw new Exception(
+                                $"Semantic error: cannot assign " +
+                                $"{valueType} to {variable.Type} " +
+                                $"variable '{variableName}'."
+                            );
+                        }
+
+
                         output.Add(
                             new SemanticVariableAssignment(
-                                storageName,
-
-                                ResolveValue(
-                                    assignment.Value,
-                                    method.ClassName,
-                                    variables,
-                                    methods
-                                )
+                                variable.StorageName,
+                                variable.Type,
+                                value
                             )
                         );
 
@@ -443,15 +651,7 @@ namespace NESOOP.Compiler
 
 
                     // -------------------------------------------------
-                    // Screen.BackgroundColor = ...
-                    // -------------------------------------------------
-
-                    // -------------------------------------------------
-                    // NES built-in member
-                    //
-                    // Example:
-                    //
-                    // Screen.BackgroundColor = value;
+                    // NES built-in member assignment
                     // -------------------------------------------------
 
                     if (
@@ -480,13 +680,18 @@ namespace NESOOP.Compiler
                             );
 
 
-                        // Everything in the language is byte-sized
-                        // at the moment, so this is simple for now.
-                        if (builtIn.ValueType != SemanticType.Byte)
+                        SemanticType valueType =
+                            GetValueType(
+                                value
+                            );
+
+
+                        if (valueType != builtIn.ValueType)
                         {
                             throw new Exception(
-                                "Internal compiler error: " +
-                                "unsupported NES built-in type."
+                                $"Semantic error: NES built-in member " +
+                                $"'{builtIn.TypeName}.{builtIn.MemberName}' " +
+                                $"requires {builtIn.ValueType}, but received {valueType}."
                             );
                         }
 
@@ -516,37 +721,7 @@ namespace NESOOP.Compiler
             }
 
 
-            // =========================================================
-            // A byte-returning method must currently end in return.
-            //
-            // We don't have if/else yet, so this simple rule is enough.
-            // =========================================================
-
-            if (
-                method.ReturnType == SemanticType.Byte &&
-                (
-                    output.Count == 0 ||
-                    output[^1]
-                    is not SemanticReturnStatement
-                )
-            )
-            {
-                throw new Exception(
-                    $"Semantic error: byte method " +
-                    $"'{method.ClassName}.{method.Syntax.Name}' " +
-                    $"must end with return."
-                );
-            }
-
-
-            return new SemanticMethod(
-                method.ClassName,
-                method.Syntax.Name,
-                method.Label,
-                method.ReturnType,
-                method.Parameters,
-                output
-            );
+            return output;
         }
 
 
@@ -557,7 +732,7 @@ namespace NESOOP.Compiler
         private static SemanticValue ResolveValue(
             ExpressionSyntax expression,
             string currentClass,
-            Dictionary<string, string> variables,
+            Dictionary<string, VariableSymbol> variables,
             Dictionary<string, MethodSymbol> methods
         )
         {
@@ -588,13 +763,24 @@ namespace NESOOP.Compiler
 
             if (
                 expression
+                is BooleanExpressionSyntax boolean
+            )
+            {
+                return new SemanticBoolLiteral(
+                    boolean.Value
+                );
+            }
+
+
+            if (
+                expression
                 is IdentifierExpressionSyntax identifier
             )
             {
                 if (
                     !variables.TryGetValue(
                         identifier.Name,
-                        out string? storageName
+                        out VariableSymbol? variable
                     )
                 )
                 {
@@ -606,7 +792,8 @@ namespace NESOOP.Compiler
 
 
                 return new SemanticVariableReference(
-                    storageName
+                    variable.StorageName,
+                    variable.Type
                 );
             }
 
@@ -616,32 +803,150 @@ namespace NESOOP.Compiler
                 is BinaryExpressionSyntax binary
             )
             {
-                if (
-                    binary.OperatorToken.Kind
-                    != TokenKind.Plus
-                )
-                {
-                    throw new Exception(
-                        $"Semantic error: unsupported operator " +
-                        $"'{binary.OperatorToken.Text}'."
-                    );
-                }
-
-
-                return new SemanticBinaryAdd(
+                SemanticValue left =
                     ResolveValue(
                         binary.Left,
                         currentClass,
                         variables,
                         methods
-                    ),
+                    );
 
+
+                SemanticValue right =
                     ResolveValue(
                         binary.Right,
                         currentClass,
                         variables,
                         methods
+                    );
+
+
+                SemanticType leftType =
+                    GetValueType(
+                        left
+                    );
+
+
+                SemanticType rightType =
+                    GetValueType(
+                        right
+                    );
+
+
+                // -----------------------------------------------------
+                // Addition
+                // -----------------------------------------------------
+
+                if (
+                    binary.OperatorToken.Kind
+                    == TokenKind.Plus
+                )
+                {
+                    if (
+                        leftType != SemanticType.Byte ||
+                        rightType != SemanticType.Byte
                     )
+                    {
+                        throw new Exception(
+                            "Semantic error: '+' requires byte operands."
+                        );
+                    }
+
+
+                    return new SemanticBinaryAdd(
+                        left,
+                        right
+                    );
+                }
+
+
+                // -----------------------------------------------------
+                // Equality
+                // -----------------------------------------------------
+
+                if (
+                    binary.OperatorToken.Kind == TokenKind.EqualsEquals ||
+                    binary.OperatorToken.Kind == TokenKind.BangEquals
+                )
+                {
+                    if (leftType != rightType)
+                    {
+                        throw new Exception(
+                            "Semantic error: equality operands " +
+                            "must have the same type."
+                        );
+                    }
+
+
+                    return new SemanticComparison(
+                        left,
+
+                        binary.OperatorToken.Kind
+                            == TokenKind.EqualsEquals
+                                ? SemanticComparisonOperator.Equal
+                                : SemanticComparisonOperator.NotEqual,
+
+                        right
+                    );
+                }
+
+
+                // -----------------------------------------------------
+                // Unsigned byte ordering comparisons
+                // -----------------------------------------------------
+
+                if (
+                    binary.OperatorToken.Kind == TokenKind.Less ||
+                    binary.OperatorToken.Kind == TokenKind.LessEquals ||
+                    binary.OperatorToken.Kind == TokenKind.Greater ||
+                    binary.OperatorToken.Kind == TokenKind.GreaterEquals
+                )
+                {
+                    if (
+                        leftType != SemanticType.Byte ||
+                        rightType != SemanticType.Byte
+                    )
+                    {
+                        throw new Exception(
+                            "Semantic error: ordering comparisons " +
+                            "require byte operands."
+                        );
+                    }
+
+
+                    SemanticComparisonOperator operation =
+                        binary.OperatorToken.Kind switch
+                        {
+                            TokenKind.Less =>
+                                SemanticComparisonOperator.Less,
+
+                            TokenKind.LessEquals =>
+                                SemanticComparisonOperator.LessOrEqual,
+
+                            TokenKind.Greater =>
+                                SemanticComparisonOperator.Greater,
+
+                            TokenKind.GreaterEquals =>
+                                SemanticComparisonOperator.GreaterOrEqual,
+
+                            _ =>
+                                throw new Exception(
+                                    "Internal compiler error."
+                                )
+                        };
+
+
+                    return new SemanticComparison(
+                        left,
+                        operation,
+                        right
+                    );
+                }
+
+
+                throw new Exception(
+                    $"Semantic error: unsupported operator " +
+                    $"'{binary.OperatorToken.Text}'."
                 );
             }
 
@@ -694,10 +999,95 @@ namespace NESOOP.Compiler
             MemberAccessExpressionSyntax target,
             IReadOnlyList<ExpressionSyntax> arguments,
             string currentClass,
-            Dictionary<string, string> variables,
+            Dictionary<string, VariableSymbol> variables,
             Dictionary<string, MethodSymbol> methods
         )
         {
+            // ---------------------------------------------------------
+            // NES built-in method
+            // ---------------------------------------------------------
+
+            if (
+                NesBuiltIns.TryResolveMethod(
+                    target.Parts,
+                    out NesBuiltInMethodDefinition builtIn
+                )
+            )
+            {
+                if (
+                    arguments.Count
+                    != builtIn.Parameters.Count
+                )
+                {
+                    throw new Exception(
+                        $"Semantic error: NES built-in method " +
+                        $"'{builtIn.TypeName}.{builtIn.MethodName}' expects " +
+                        $"{builtIn.Parameters.Count} argument(s), " +
+                        $"but {arguments.Count} were supplied."
+                    );
+                }
+
+
+                List<SemanticValue> builtInArguments =
+                    new();
+
+
+                for (
+                    int i = 0;
+                    i < arguments.Count;
+                    i++
+                )
+                {
+                    SemanticValue argumentValue =
+                        ResolveValue(
+                            arguments[i],
+                            currentClass,
+                            variables,
+                            methods
+                        );
+
+
+                    SemanticType argumentType =
+                        GetValueType(
+                            argumentValue
+                        );
+
+
+                    SemanticType expectedType =
+                        builtIn.Parameters[i].Type;
+
+
+                    if (argumentType != expectedType)
+                    {
+                        throw new Exception(
+                            $"Semantic error: argument {i + 1} of " +
+                            $"'{builtIn.TypeName}.{builtIn.MethodName}' " +
+                            $"expects {expectedType}, but received {argumentType}."
+                        );
+                    }
+
+
+                    builtInArguments.Add(
+                        argumentValue
+                    );
+                }
+
+
+                return new SemanticCall(
+                    builtIn.RuntimeLabel,
+
+                    builtIn.Parameters
+                        .Select(
+                            parameter =>
+                                parameter.StorageName
+                        )
+                        .ToList(),
+
+                    builtInArguments,
+
+                    builtIn.ReturnType
+                );
+            }
 
 
             string targetClass;
@@ -732,72 +1122,11 @@ namespace NESOOP.Compiler
             string key =
                 $"{targetClass}.{targetMethod}";
 
-            // =============================================================
-            // NES built-in method
-            // =============================================================
-
-            if (
-                NesBuiltIns.TryResolveMethod(
-                    target.Parts,
-                    out NesBuiltInMethodDefinition builtIn
-                )
-            )
-            {
-                if (
-                    arguments.Count
-                    != builtIn.Parameters.Count
-                )
-                {
-                    throw new Exception(
-                        $"Semantic error: NES built-in method " +
-                        $"'{builtIn.TypeName}.{builtIn.MethodName}' expects " +
-                        $"{builtIn.Parameters.Count} argument(s), " +
-                        $"but {arguments.Count} were supplied."
-                    );
-                }
-
-
-                List<SemanticValue> builtInArguments =
-    new();
-
-
-                foreach (
-                    ExpressionSyntax argument
-                    in arguments
-                )
-                {
-                    builtInArguments.Add(
-                        ResolveValue(
-                            argument,
-                            currentClass,
-                            variables,
-                            methods
-                        )
-                    );
-                }
-
-
-                return new SemanticCall(
-                    builtIn.RuntimeLabel,
-
-                    builtIn.Parameters
-                        .Select(
-                            parameter =>
-                                parameter.StorageName
-                        )
-                        .ToList(),
-
-                    builtInArguments,
-
-                    builtIn.ReturnType
-                );
-            }
-
 
             if (
                 !methods.TryGetValue(
                     key,
-                    out MethodSymbol? method
+                    out MethodSymbol? calledMethod
                 )
             )
             {
@@ -808,7 +1137,7 @@ namespace NESOOP.Compiler
             }
 
 
-            if (!method.Syntax.IsStatic)
+            if (!calledMethod.Syntax.IsStatic)
             {
                 throw new Exception(
                     $"Semantic error: method " +
@@ -819,51 +1148,174 @@ namespace NESOOP.Compiler
 
             if (
                 arguments.Count
-                != method.Parameters.Count
+                != calledMethod.Parameters.Count
             )
             {
                 throw new Exception(
                     $"Semantic error: method '{key}' expects " +
-                    $"{method.Parameters.Count} argument(s), " +
+                    $"{calledMethod.Parameters.Count} argument(s), " +
                     $"but {arguments.Count} were supplied."
                 );
             }
 
 
-            List<SemanticValue> semanticArguments =
+            List<SemanticValue> methodArguments =
                 new();
 
 
-            foreach (
-                ExpressionSyntax argument
-                in arguments
+            for (
+                int i = 0;
+                i < arguments.Count;
+                i++
             )
             {
-                semanticArguments.Add(
+                SemanticValue argumentValue =
                     ResolveValue(
-                        argument,
+                        arguments[i],
                         currentClass,
                         variables,
                         methods
-                    )
+                    );
+
+
+                SemanticType argumentType =
+                    GetValueType(
+                        argumentValue
+                    );
+
+
+                SemanticType expectedType =
+                    calledMethod.Parameters[i].Type;
+
+
+                if (argumentType != expectedType)
+                {
+                    throw new Exception(
+                        $"Semantic error: argument {i + 1} of " +
+                        $"'{key}' expects {expectedType}, " +
+                        $"but received {argumentType}."
+                    );
+                }
+
+
+                methodArguments.Add(
+                    argumentValue
                 );
             }
 
 
             return new SemanticCall(
-                method.Label,
+                calledMethod.Label,
 
-                method.Parameters
+                calledMethod.Parameters
                     .Select(
                         parameter =>
                             parameter.StorageName
                     )
                     .ToList(),
 
-                semanticArguments,
+                methodArguments,
 
-                method.ReturnType
+                calledMethod.ReturnType
             );
+        }
+
+
+        // =============================================================
+        // Type helpers
+        // =============================================================
+
+        private static SemanticType GetValueType(
+            SemanticValue value
+        )
+        {
+            return value switch
+            {
+                SemanticByteLiteral =>
+                    SemanticType.Byte,
+
+                SemanticBoolLiteral =>
+                    SemanticType.Bool,
+
+                SemanticVariableReference variable =>
+                    variable.Type,
+
+                SemanticBinaryAdd =>
+                    SemanticType.Byte,
+
+                SemanticComparison =>
+                    SemanticType.Bool,
+
+                SemanticMethodCallValue call =>
+                    call.Call.ReturnType,
+
+                _ =>
+                    throw new Exception(
+                        "Internal compiler error: unknown value type."
+                    )
+            };
+        }
+
+
+        private static SemanticType ToSemanticType(
+            TypeSyntaxKind type
+        )
+        {
+            return type switch
+            {
+                TypeSyntaxKind.Void =>
+                    SemanticType.Void,
+
+                TypeSyntaxKind.Byte =>
+                    SemanticType.Byte,
+
+                TypeSyntaxKind.Bool =>
+                    SemanticType.Bool,
+
+                _ =>
+                    throw new Exception(
+                        "Internal compiler error: unknown type."
+                    )
+            };
+        }
+
+
+        private static bool AlwaysReturns(
+            IReadOnlyList<SemanticStatement> statements
+        )
+        {
+            if (statements.Count == 0)
+            {
+                return false;
+            }
+
+
+            SemanticStatement last =
+                statements[^1];
+
+
+            if (last is SemanticReturnStatement)
+            {
+                return true;
+            }
+
+
+            if (
+                last is SemanticIfStatement ifStatement &&
+                ifStatement.ElseStatements.Count > 0
+            )
+            {
+                return
+                    AlwaysReturns(
+                        ifStatement.ThenStatements
+                    ) &&
+                    AlwaysReturns(
+                        ifStatement.ElseStatements
+                    );
+            }
+
+
+            return false;
         }
 
 

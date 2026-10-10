@@ -7,7 +7,8 @@ namespace NESOOP.Compiler
     public enum TypeSyntaxKind
     {
         Void,
-        Byte
+        Byte,
+        Bool
     }
 
 
@@ -32,6 +33,7 @@ namespace NESOOP.Compiler
 
 
     public sealed record ParameterSyntax(
+        TypeSyntaxKind Type,
         string Name,
         Token NameToken
     );
@@ -50,6 +52,7 @@ namespace NESOOP.Compiler
 
 
     public sealed record VariableDeclarationStatementSyntax(
+        TypeSyntaxKind Type,
         string Name,
         Token NameToken,
         ExpressionSyntax Initializer
@@ -74,6 +77,13 @@ namespace NESOOP.Compiler
     ) : StatementSyntax;
 
 
+    public sealed record IfStatementSyntax(
+        ExpressionSyntax Condition,
+        BlockSyntax ThenBlock,
+        BlockSyntax? ElseBlock
+    ) : StatementSyntax;
+
+
     // =========================================================
     // Expressions
     // =========================================================
@@ -83,6 +93,12 @@ namespace NESOOP.Compiler
 
     public sealed record NumberExpressionSyntax(
         int Value,
+        Token Token
+    ) : ExpressionSyntax;
+
+
+    public sealed record BooleanExpressionSyntax(
+        bool Value,
         Token Token
     ) : ExpressionSyntax;
 
@@ -109,6 +125,5 @@ namespace NESOOP.Compiler
     public sealed record MemberAccessExpressionSyntax(
         IReadOnlyList<string> Parts
     );
-
 
 }

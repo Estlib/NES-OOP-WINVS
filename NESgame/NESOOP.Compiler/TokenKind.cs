@@ -11,13 +11,20 @@ namespace NESOOP.Compiler
         Static,
         Void,
         Return,
+        True,
+        False,
+        If,
+        Else,
 
         //datatypes
         Byte,
+        Bool,
+
 
         // Values / names
         Identifier,
         Number,
+
 
         // Symbols
         LeftBrace,
@@ -29,6 +36,14 @@ namespace NESOOP.Compiler
         Semicolon,
         Plus,
         Comma,
+
+        //logic operators & comparison
+        EqualsEquals,
+        BangEquals,
+        Less,
+        LessEquals,
+        Greater,
+        GreaterEquals,
 
         // End of source
         EndOfFile

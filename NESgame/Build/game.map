@@ -9,7 +9,7 @@ screen.o:
     CODE              Offs=00007D  Size=000033  Align=00001  Fill=0000
     BSS               Offs=000000  Size=000005  Align=00001  Fill=0000
 game.o:
-    CODE              Offs=0000B0  Size=000041  Align=00001  Fill=0000
+    CODE              Offs=0000B0  Size=000059  Align=00001  Fill=0000
     BSS               Offs=000005  Size=000003  Align=00001  Fill=0000
 
 
@@ -20,7 +20,7 @@ Name                   Start     End    Size  Align
 CHARS                 000000  001FFF  002000  00001
 HEADER                000000  00000F  000010  00001
 BSS                   000200  000207  000008  00001
-CODE                  008000  0080F0  0000F1  00001
+CODE                  008000  008108  000109  00001
 VECTORS               00FFFA  00FFFF  000006  00001
 
 
@@ -43,11 +43,11 @@ Imports list:
 Game_Start (game.o):
     main.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\Game\runtime\main.s:4
 NESRT_Screen_SetTile (screen.o):
-    game.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\build\generated\game.s:13
-NESRT_Screen_SetTile_tile (screen.o):
-    game.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\build\generated\game.s:16
-NESRT_Screen_SetTile_x (screen.o):
     game.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\build\generated\game.s:14
-NESRT_Screen_SetTile_y (screen.o):
+NESRT_Screen_SetTile_tile (screen.o):
+    game.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\build\generated\game.s:17
+NESRT_Screen_SetTile_x (screen.o):
     game.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\build\generated\game.s:15
+NESRT_Screen_SetTile_y (screen.o):
+    game.o                    C:\Users\KKR\source\repos\NES-OOP-WINVS\NESgame\build\generated\game.s:16
 

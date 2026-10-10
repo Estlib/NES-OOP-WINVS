@@ -2,11 +2,16 @@ class Game
 {
     static void Start()
     {
-        byte color = Palette.AddOne(0x2A);
+        byte value = 4;
 
-        Screen.BackgroundColor = 0x2B;
-
-        Screen.SetTile(4, 7, 1);
+        if (value == 5)
+        {
+            Screen.SetTile(4, 7, 1);
+        }
+        else
+        {
+            Screen.SetTile(8, 7, 1);
+        }
     }
 }
 

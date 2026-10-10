@@ -156,18 +156,124 @@ namespace NESOOP.Compiler
 
 
                     case '=':
-                        tokens.Add(
-                            new Token(
-                                TokenKind.Equals,
-                                "=",
-                                line,
-                                column
-                            )
-                        );
+                        if (Peek(1) == '=')
+                        {
+                            tokens.Add(
+                                new Token(
+                                    TokenKind.EqualsEquals,
+                                    "==",
+                                    line,
+                                    column
+                                )
+                            );
 
-                        Advance();
+                            Advance();
+                            Advance();
+                        }
+                        else
+                        {
+                            tokens.Add(
+                                new Token(
+                                    TokenKind.Equals,
+                                    "=",
+                                    line,
+                                    column
+                                )
+                            );
+
+                            Advance();
+                        }
+
+                        break;
+                    case '!':
+
+                        if (Peek(1) == '=')
+                        {
+                            tokens.Add(
+                                new Token(
+                                    TokenKind.BangEquals,
+                                    "!=",
+                                    line,
+                                    column
+                                )
+                            );
+
+                            Advance();
+                            Advance();
+                        }
+                        else
+                        {
+                            throw new Exception(
+                                $"Unexpected character '!' at " +
+                                $"line {line}, column {column}."
+                            );
+                        }
+
+                        break;
+                    case '<':
+
+                        if (Peek(1) == '=')
+                        {
+                            tokens.Add(
+                                new Token(
+                                    TokenKind.LessEquals,
+                                    "<=",
+                                    line,
+                                    column
+                                )
+                            );
+
+                            Advance();
+                            Advance();
+                        }
+                        else
+                        {
+                            tokens.Add(
+                                new Token(
+                                    TokenKind.Less,
+                                    "<",
+                                    line,
+                                    column
+                                )
+                            );
+
+                            Advance();
+                        }
+
                         break;
 
+
+                    case '>':
+
+                        if (Peek(1) == '=')
+                        {
+                            tokens.Add(
+                                new Token(
+                                    TokenKind.GreaterEquals,
+                                    ">=",
+                                    line,
+                                    column
+                                )
+                            );
+
+                            Advance();
+                            Advance();
+                        }
+                        else
+                        {
+                            tokens.Add(
+                                new Token(
+                                    TokenKind.Greater,
+                                    ">",
+                                    line,
+                                    column
+                                )
+                            );
+
+                            Advance();
+                        }
+
+                        break;
 
                     case ';':
                         tokens.Add(
@@ -255,9 +361,18 @@ namespace NESOOP.Compiler
             {
                 "class" => TokenKind.Class,
                 "static" => TokenKind.Static,
+
                 "void" => TokenKind.Void,
                 "byte" => TokenKind.Byte,
+                "bool" => TokenKind.Bool,
+
+                "true" => TokenKind.True,
+                "false" => TokenKind.False,
+
                 "return" => TokenKind.Return,
+
+                "if" => TokenKind.If,
+                "else" => TokenKind.Else,
 
                 _ => TokenKind.Identifier
             };

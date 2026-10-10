@@ -7,7 +7,19 @@ namespace NESOOP.Compiler
     public enum SemanticType
     {
         Void,
-        Byte
+        Byte,
+        Bool
+    }
+
+
+    public enum SemanticComparisonOperator
+    {
+        Equal,
+        NotEqual,
+        Less,
+        LessOrEqual,
+        Greater,
+        GreaterOrEqual
     }
 
 
@@ -28,13 +40,10 @@ namespace NESOOP.Compiler
 
     public sealed record SemanticParameter(
         string Name,
-        string StorageName
+        string StorageName,
+        SemanticType Type
     );
 
-
-    // =========================================================
-    // Calls
-    // =========================================================
 
     public sealed record SemanticCall(
         string TargetLabel,
@@ -51,15 +60,17 @@ namespace NESOOP.Compiler
     public abstract record SemanticStatement;
 
 
-    public sealed record SemanticByteDeclaration(
+    public sealed record SemanticVariableDeclaration(
         string Name,
         string StorageName,
+        SemanticType Type,
         SemanticValue Initializer
     ) : SemanticStatement;
 
 
     public sealed record SemanticVariableAssignment(
         string StorageName,
+        SemanticType Type,
         SemanticValue Value
     ) : SemanticStatement;
 
@@ -80,6 +91,13 @@ namespace NESOOP.Compiler
     ) : SemanticStatement;
 
 
+    public sealed record SemanticIfStatement(
+        SemanticValue Condition,
+        IReadOnlyList<SemanticStatement> ThenStatements,
+        IReadOnlyList<SemanticStatement> ElseStatements
+    ) : SemanticStatement;
+
+
     // =========================================================
     // Values
     // =========================================================
@@ -92,13 +110,26 @@ namespace NESOOP.Compiler
     ) : SemanticValue;
 
 
+    public sealed record SemanticBoolLiteral(
+        bool Value
+    ) : SemanticValue;
+
+
     public sealed record SemanticVariableReference(
-        string StorageName
+        string StorageName,
+        SemanticType Type
     ) : SemanticValue;
 
 
     public sealed record SemanticBinaryAdd(
         SemanticValue Left,
+        SemanticValue Right
+    ) : SemanticValue;
+
+
+    public sealed record SemanticComparison(
+        SemanticValue Left,
+        SemanticComparisonOperator Operator,
         SemanticValue Right
     ) : SemanticValue;
 

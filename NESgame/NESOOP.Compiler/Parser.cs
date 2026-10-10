@@ -85,19 +85,26 @@ namespace NESOOP.Compiler
             {
                 while (true)
                 {
-                    // Only byte parameters exist for now.
-                    Expect(TokenKind.Byte);
+                    TypeSyntaxKind parameterType =
+                        ParseType();
+
+                    if (parameterType == TypeSyntaxKind.Void)
+                    {
+                        throw new Exception(
+                            "Parameters cannot have type void."
+                        );
+                    }
 
                     Token parameterName =
                         Expect(TokenKind.Identifier);
 
                     parameters.Add(
                         new ParameterSyntax(
+                            parameterType,
                             parameterName.Text,
                             parameterName
                         )
                     );
-
 
                     if (Current.Kind != TokenKind.Comma)
                         break;
@@ -138,11 +145,15 @@ namespace NESOOP.Compiler
                 return TypeSyntaxKind.Byte;
             }
 
+            if (Current.Kind == TokenKind.Bool)
+            {
+                Advance();
+                return TypeSyntaxKind.Bool;
+            }
 
             throw new Exception(
-                $"Expected type, but found " +
-                $"'{Current.Text}' at line " +
-                $"{Current.Line}, column {Current.Column}."
+                $"Expected type, but found '{Current.Text}' " +
+                $"at line {Current.Line}, column {Current.Column}."
             );
         }
 
@@ -171,7 +182,10 @@ namespace NESOOP.Compiler
 
         private StatementSyntax ParseStatement()
         {
-            if (Current.Kind == TokenKind.Byte)
+            if (
+                Current.Kind == TokenKind.Byte ||
+                Current.Kind == TokenKind.Bool
+            )
             {
                 return ParseVariableDeclaration();
             }
@@ -183,30 +197,86 @@ namespace NESOOP.Compiler
             }
 
 
+            if (Current.Kind == TokenKind.If)
+            {
+                return ParseIf();
+            }
+
+
             return ParseIdentifierStatement();
         }
 
 
         private VariableDeclarationStatementSyntax
-            ParseVariableDeclaration()
+    ParseVariableDeclaration()
         {
-            Expect(TokenKind.Byte);
+            TypeSyntaxKind type =
+                ParseType();
+
+
+            if (type == TypeSyntaxKind.Void)
+            {
+                throw new Exception(
+                    "Local variables cannot have type void."
+                );
+            }
+
 
             Token name =
                 Expect(TokenKind.Identifier);
 
+
             Expect(TokenKind.Equals);
+
 
             ExpressionSyntax initializer =
                 ParseExpression();
+
 
             Expect(TokenKind.Semicolon);
 
 
             return new VariableDeclarationStatementSyntax(
+                type,
                 name.Text,
                 name,
                 initializer
+            );
+        }
+
+        private IfStatementSyntax ParseIf()
+        {
+            Expect(TokenKind.If);
+
+            Expect(TokenKind.LeftParen);
+
+            ExpressionSyntax condition =
+                ParseExpression();
+
+            Expect(TokenKind.RightParen);
+
+
+            BlockSyntax thenBlock =
+                ParseBlock();
+
+
+            BlockSyntax? elseBlock =
+                null;
+
+
+            if (Current.Kind == TokenKind.Else)
+            {
+                Advance();
+
+                elseBlock =
+                    ParseBlock();
+            }
+
+
+            return new IfStatementSyntax(
+                condition,
+                thenBlock,
+                elseBlock
             );
         }
 
@@ -296,6 +366,74 @@ namespace NESOOP.Compiler
 
         private ExpressionSyntax ParseExpression()
         {
+            return ParseEqualityExpression();
+        }
+        private ExpressionSyntax ParseEqualityExpression()
+        {
+            ExpressionSyntax left =
+                ParseComparisonExpression();
+
+
+            while (
+                Current.Kind == TokenKind.EqualsEquals ||
+                Current.Kind == TokenKind.BangEquals
+            )
+            {
+                Token operatorToken =
+                    Current;
+
+                Advance();
+
+
+                ExpressionSyntax right =
+                    ParseComparisonExpression();
+
+
+                left = new BinaryExpressionSyntax(
+                    left,
+                    operatorToken,
+                    right
+                );
+            }
+
+
+            return left;
+        }
+        private ExpressionSyntax ParseComparisonExpression()
+        {
+            ExpressionSyntax left =
+                ParseAdditiveExpression();
+
+
+            while (
+                Current.Kind == TokenKind.Less ||
+                Current.Kind == TokenKind.LessEquals ||
+                Current.Kind == TokenKind.Greater ||
+                Current.Kind == TokenKind.GreaterEquals
+            )
+            {
+                Token operatorToken =
+                    Current;
+
+                Advance();
+
+
+                ExpressionSyntax right =
+                    ParseAdditiveExpression();
+
+
+                left = new BinaryExpressionSyntax(
+                    left,
+                    operatorToken,
+                    right
+                );
+            }
+
+
+            return left;
+        }
+        private ExpressionSyntax ParseAdditiveExpression()
+        {
             ExpressionSyntax left =
                 ParsePrimaryExpression();
 
@@ -334,6 +472,30 @@ namespace NESOOP.Compiler
             {
                 return ParseNumber();
             }
+            // ---------------------------------------------------------
+            // Boolean
+            // ---------------------------------------------------------
+
+            if (
+                Current.Kind == TokenKind.True ||
+                Current.Kind == TokenKind.False
+            )
+            {
+                Token token =
+                    Current;
+
+                bool value =
+                    Current.Kind == TokenKind.True;
+
+                Advance();
+
+
+                return new BooleanExpressionSyntax(
+                    value,
+                    token
+                );
+            }
+
 
 
             // ---------------------------------------------------------
